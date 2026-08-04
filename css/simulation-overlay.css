@@ -37,3 +37,8 @@
 .release-product .sim-mission-guide {
   z-index: 50;
 }
+.voice-product .sim-mission-guide {
+  --sim-text: #f8fafc;
+  --sim-muted: #cbd5e1;
+  --sim-panel: #172433;
+}
