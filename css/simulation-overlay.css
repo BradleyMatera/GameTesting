@@ -1,0 +1,39 @@
+/* Layering rules kept separate so decorative artwork can sit over 3D canvases safely. */
+.sim-product > canvas {
+  position: relative;
+  z-index: 0;
+}
+.sim-product::before {
+  z-index: 1;
+}
+.sim-product::after {
+  z-index: 2;
+}
+.sim-product > :not(canvas) {
+  position: relative;
+  z-index: 3;
+}
+.sim-product .sim-mission-guide {
+  position: absolute;
+  z-index: 50;
+}
+.voice-product::before,
+.rag-studio::before,
+.release-product::before {
+  z-index: 0;
+}
+.voice-product::after,
+.rag-studio::after,
+.release-product::after {
+  z-index: 1;
+}
+.voice-product > *,
+.rag-studio > *,
+.release-product > * {
+  z-index: 2;
+}
+.voice-product .sim-mission-guide,
+.rag-studio .sim-mission-guide,
+.release-product .sim-mission-guide {
+  z-index: 50;
+}
