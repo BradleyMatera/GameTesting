@@ -30,7 +30,7 @@ jobs:
           while IFS= read -r file; do
             echo "Checking $file"
             node --check "$file"
-          done < <(find js -type f -name '*.js' | sort)
+          done < <(find js tests -type f \( -name '*.js' -o -name '*.mjs' \) | sort)
 
       - name: Validate page structure and registry
         shell: python
@@ -38,7 +38,6 @@ jobs:
           from html.parser import HTMLParser
           from pathlib import Path
           import re
-          import sys
 
           root = Path('.')
           html = (root / 'index.html').read_text(encoding='utf-8')
@@ -105,3 +104,32 @@ jobs:
           grep -q "Interactive Systems Lab" /tmp/index.html
           curl --fail --silent --show-error http://127.0.0.1:8080/js/demo-registry.js > /dev/null
           curl --fail --silent --show-error http://127.0.0.1:8080/lab-expansion.css > /dev/null
+
+  browser-smoke:
+    needs: validate
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install Playwright Chromium
+        run: |
+          npm install --no-save playwright@1.55.0
+          npx playwright install --with-deps chromium
+
+      - name: Open all demos in a real browser
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m http.server 8080 >/tmp/game-testing-browser-server.log 2>&1 &
+          server_pid=$!
+          trap 'kill $server_pid' EXIT
+          sleep 1
+          node tests/browser-smoke.mjs
