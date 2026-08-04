@@ -30,6 +30,18 @@ for (const [index, id] of ids.entries()) {
     if (await start.count()) { await start.click(); await page.waitForTimeout(500); }
     if (!(await page.locator('#stage canvas').count())) throw new Error(`${id}: missing Babylon canvas`);
   }
+  if (['matera-digital','fairway-store','ethics-lms','construction-erp','recruiter-portfolio'].includes(id)) {
+    const frame = page.locator('.website-frame');
+    if (!(await frame.count())) throw new Error(`${id}: missing website scroll frame`);
+    const metrics = await frame.evaluate(el => ({ clientHeight: el.clientHeight, scrollHeight: el.scrollHeight }));
+    if (metrics.scrollHeight <= metrics.clientHeight + 1) throw new Error(`${id}: website has no vertical scroll range (${metrics.scrollHeight}/${metrics.clientHeight})`);
+    await frame.hover();
+    await page.mouse.wheel(0, 500);
+    await page.waitForTimeout(120);
+    const scrolled = await frame.evaluate(el => el.scrollTop);
+    if (scrolled < 50) throw new Error(`${id}: mouse wheel did not scroll the website frame`);
+    await frame.evaluate(el => { el.scrollTop = 0; });
+  }
   if (errors.length) throw new Error(`${id}: ${errors.join(' | ')}`);
   if ([0,7,12,19,20,21,22,23,24].includes(index)) {
     await page.screenshot({ path: `test-screenshots/${String(index+1).padStart(2,'0')}-${id}.png`, fullPage: false });
@@ -47,4 +59,4 @@ for (const id of ['digital-command-center','matera-digital','architecture-builde
 
 await browser.close();
 server.kill('SIGTERM');
-console.log('Validated 25 demos and representative mobile layouts.');
+console.log('Validated 25 demos, website scrolling, and representative mobile layouts.');
