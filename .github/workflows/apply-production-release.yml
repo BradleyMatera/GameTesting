@@ -34,7 +34,6 @@ jobs:
         run: |
           set -euo pipefail
           cat .release-payload/chunk-* > /tmp/release.tar.gz.b64
-          echo "174788229cbb26d0982d49fbba61b2a02ff9c1b15317ba1d7f7a2c0cf9debf93  /tmp/release.tar.gz.b64" | sha256sum -c -
           base64 -d /tmp/release.tar.gz.b64 > /tmp/release.tar.gz
           echo "ee7ecfb68b3a9b7cd675b8f40111e7821663c0a39a5d855c8c14816365c93555  /tmp/release.tar.gz" | sha256sum -c -
           rm -rf /tmp/production-release
