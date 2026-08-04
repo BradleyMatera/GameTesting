@@ -68,3 +68,6 @@
   :root { --rail: 260px; }
   .demo-bar { grid-template-columns: 1fr auto; }
   .demo-bar > p { grid-column: 1 / -1; grid-row: 2; }
+  .site-hero { min-height: auto; }
+  .site-grid { grid-template-columns: repeat(2, 1fr); }
+}
