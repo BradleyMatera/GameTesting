@@ -14,7 +14,8 @@ const incomingTemplates = [
 function makeCall(definition, index = 0) {
   return {
     id: uid('call'), ...definition, state: 'waiting', activeSeconds: 0,
-    answeredAt: null, notes: '', appointment: '', events: ['Call entered the queue.'],
+    answeredAt: null, notes: '', notesDraft: '', appointment: '', appointmentDraft: '',
+    events: ['Call entered the queue.'],
     transcript: [
       { speaker: 'System', text: `Intent detected: ${definition.intent}.` },
       { speaker: 'Caller', text: definition.intent === 'Support escalation' ? 'My API stopped responding after the deployment.' : definition.intent === 'Pricing inquiry' ? 'What does a custom site usually cost?' : 'I would like help with this request.' },
@@ -80,6 +81,12 @@ export function createVoiceOps({ stage, toast }) {
     qs(stage, '[data-kpi="held"]').textContent = `${held} HELD`;
     qs(stage, '[data-kpi="sla"]').textContent = `${sla}% SLA`;
   }
+  function syncEditableFields(call) {
+    const appointmentField = qs(stage, '[data-appointment]');
+    const notesField = qs(stage, '[data-notes]');
+    if (document.activeElement !== appointmentField) appointmentField.value = call.appointmentDraft;
+    if (document.activeElement !== notesField) notesField.value = call.notesDraft;
+  }
   function renderSelected() {
     const call = selectedCall();
     const buttons = Object.fromEntries(qsa(stage, '[data-action]').map(button => [button.dataset.action, button]));
@@ -99,8 +106,7 @@ export function createVoiceOps({ stage, toast }) {
     qs(stage, '[data-sentiment]').textContent = call.sentiment;
     qs(stage, '[data-agent]').textContent = call.agent;
     qs(stage, '[data-wait]').textContent = formatDuration(call.waitSeconds);
-    qs(stage, '[data-appointment]').value = call.appointment;
-    qs(stage, '[data-notes]').value = call.notes;
+    syncEditableFields(call);
     qs(stage, '[data-transcript]').innerHTML = call.transcript.map(line => `<p><b>${escapeHtml(line.speaker)}:</b> ${escapeHtml(line.text)}</p>`).join('');
     qs(stage, '[data-events]').innerHTML = call.events.map(message => `<li><time>${formatDuration(call.activeSeconds)}</time> ${escapeHtml(message)}</li>`).join('');
     buttons.answer.disabled = !['waiting', 'transferred'].includes(call.state) || Boolean(activeCall() && activeCall().id !== call.id);
@@ -169,6 +175,16 @@ export function createVoiceOps({ stage, toast }) {
     render();
   }
 
+  stage.addEventListener('change', event => {
+    const call = selectedCall();
+    if (!call || call.state === 'resolved') return;
+    if (event.target.matches('[data-appointment]')) call.appointmentDraft = event.target.value;
+  });
+  stage.addEventListener('input', event => {
+    const call = selectedCall();
+    if (!call || call.state === 'resolved') return;
+    if (event.target.matches('[data-notes]')) call.notesDraft = event.target.value;
+  });
   stage.addEventListener('click', event => {
     const callButton = event.target.closest('[data-call]');
     if (callButton) { select(callButton.dataset.call); return; }
@@ -180,14 +196,14 @@ export function createVoiceOps({ stage, toast }) {
     else if (['hold', 'resume', 'transfer', 'resolve'].includes(action)) transition(action);
     else if (action === 'schedule') {
       if (!call || call.state === 'resolved') return;
-      const appointment = qs(stage, '[data-appointment]').value;
-      if (!appointment) return toast('Choose an appointment time.');
-      call.appointment = appointment;
-      event(call, `Appointment scheduled for ${appointment}.`);
+      if (!call.appointmentDraft) return toast('Choose an appointment time.');
+      call.appointment = call.appointmentDraft;
+      event(call, `Appointment scheduled for ${call.appointment}.`);
       toast('Appointment saved'); render();
     } else if (action === 'save-notes') {
       if (!call || call.state === 'resolved') return;
-      call.notes = qs(stage, '[data-notes]').value.trim();
+      call.notes = call.notesDraft.trim();
+      call.notesDraft = call.notes;
       event(call, call.notes ? 'Agent notes saved.' : 'Agent notes cleared.');
       toast('Call notes saved'); render();
     }
