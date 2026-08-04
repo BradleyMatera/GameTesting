@@ -1,0 +1,499 @@
+/* Cinematic simulation shell. Keeps the state engines, replaces prototype presentation. */
+.sim-product {
+  --sim-radius: 18px;
+  --sim-shadow: 0 28px 80px rgba(0, 0, 0, .34);
+  isolation: isolate;
+  font-family: Inter, ui-sans-serif, system-ui, sans-serif;
+}
+.sim-product::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background-image: url('../assets/simulation-scenes.svg');
+  background-repeat: no-repeat;
+  background-size: 100% 600%;
+  opacity: .16;
+  mix-blend-mode: screen;
+  filter: saturate(1.22) contrast(1.06);
+}
+.agent-office::before { background-position: center 0%; }
+.router-world::before { background-position: center 20%; }
+.incident-world::before { background-position: center 40%; }
+.voice-product::before { background-position: center 60%; opacity: .11; mix-blend-mode: multiply; }
+.rag-studio::before { background-position: center 80%; }
+.release-product::before { background-position: center 100%; }
+.sim-product::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  background:
+    radial-gradient(circle at 70% 18%, color-mix(in srgb, var(--sim-accent) 16%, transparent), transparent 32%),
+    linear-gradient(180deg, rgba(2, 8, 20, .04), rgba(2, 8, 20, .52));
+}
+.sim-product > * { position: relative; z-index: 2; }
+.sim-product canvas { filter: saturate(1.12) contrast(1.05); }
+
+.sim-product button,
+.sim-product input,
+.sim-product select,
+.sim-product textarea {
+  min-height: 38px;
+  border-radius: 10px;
+}
+.sim-product button {
+  position: relative;
+  padding: .62rem .78rem;
+  border-color: color-mix(in srgb, var(--sim-line) 72%, transparent);
+  background: color-mix(in srgb, var(--sim-control) 86%, transparent);
+  box-shadow: inset 0 1px rgba(255,255,255,.06);
+  transition: transform .16s ease, border-color .16s ease, background .16s ease, box-shadow .16s ease;
+}
+.sim-product button:hover:not(:disabled) {
+  transform: translateY(-1px);
+  border-color: color-mix(in srgb, var(--sim-accent) 58%, var(--sim-line));
+  box-shadow: 0 10px 24px color-mix(in srgb, var(--sim-accent) 13%, transparent), inset 0 1px rgba(255,255,255,.1);
+}
+.sim-product button:focus-visible,
+.sim-product input:focus-visible,
+.sim-product select:focus-visible,
+.sim-product textarea:focus-visible {
+  outline: 3px solid color-mix(in srgb, var(--sim-accent) 28%, transparent);
+  outline-offset: 2px;
+}
+.sim-product button.primary {
+  color: #031018;
+  background: linear-gradient(135deg, color-mix(in srgb, var(--sim-accent) 86%, white), var(--sim-accent));
+  box-shadow: 0 12px 30px color-mix(in srgb, var(--sim-accent) 24%, transparent);
+}
+.sim-product input,
+.sim-product select,
+.sim-product textarea {
+  padding: .62rem .7rem;
+  background: color-mix(in srgb, var(--sim-control) 92%, transparent);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.04);
+}
+.sim-product label { font-size: .62rem; font-weight: 760; letter-spacing: .04em; }
+.sim-glass {
+  border-radius: var(--sim-radius);
+  border-color: color-mix(in srgb, var(--sim-line) 72%, transparent);
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--sim-panel) 91%, rgba(255,255,255,.045)), color-mix(in srgb, var(--sim-panel) 82%, rgba(0,0,0,.1)));
+  box-shadow: var(--sim-shadow), inset 0 1px rgba(255,255,255,.07);
+  backdrop-filter: blur(22px) saturate(1.22);
+}
+.sim-kpi {
+  min-height: 58px;
+  padding: .68rem;
+  border-radius: 12px;
+  background:
+    linear-gradient(145deg, rgba(255,255,255,.075), rgba(255,255,255,.018));
+  box-shadow: inset 0 1px rgba(255,255,255,.06);
+}
+.sim-kpi span { font-size: .52rem; font-weight: 800; letter-spacing: .12em; }
+.sim-kpi strong { font-size: 1rem; line-height: 1.05; }
+.sim-notice { border-radius: 12px; padding: .75rem .82rem; }
+.sim-log { border-radius: 14px; background: rgba(1,7,15,.44); border: 1px solid rgba(255,255,255,.07); }
+.sim-pill { min-height: 27px; padding: .3rem .52rem; font-weight: 800; letter-spacing: .06em; }
+
+/* Universal mission guide */
+.sim-mission-guide {
+  position: absolute;
+  left: 18px;
+  bottom: 18px;
+  z-index: 40;
+  width: min(440px, calc(100% - 36px));
+  color: var(--sim-text, #eff6ff);
+  pointer-events: auto;
+}
+.sim-mission-guide__toggle {
+  display: flex;
+  align-items: center;
+  gap: .55rem;
+  width: auto;
+  min-height: 42px;
+  padding: .62rem .82rem;
+  border-radius: 999px !important;
+  border: 1px solid color-mix(in srgb, var(--sim-accent) 48%, transparent) !important;
+  background: color-mix(in srgb, var(--sim-panel, #07111f) 90%, transparent) !important;
+  box-shadow: 0 15px 40px rgba(0,0,0,.32) !important;
+  backdrop-filter: blur(18px);
+}
+.sim-mission-guide__toggle::before {
+  content: "?";
+  width: 24px;
+  height: 24px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--sim-accent);
+  color: #031018;
+  font-size: .72rem;
+  font-weight: 950;
+}
+.sim-mission-guide__panel {
+  display: none;
+  margin-top: .55rem;
+  padding: 1rem;
+  border: 1px solid color-mix(in srgb, var(--sim-accent) 30%, var(--sim-line));
+  border-radius: 18px;
+  background: color-mix(in srgb, var(--sim-panel, #07111f) 94%, transparent);
+  box-shadow: 0 24px 70px rgba(0,0,0,.42);
+  backdrop-filter: blur(24px) saturate(1.25);
+}
+.sim-mission-guide[data-open="true"] .sim-mission-guide__panel { display: block; }
+.sim-mission-guide__panel > span { color: var(--sim-accent); font-size: .55rem; font-weight: 900; letter-spacing: .16em; }
+.sim-mission-guide__panel h3 { margin: .35rem 0 .4rem; font-size: 1.1rem; }
+.sim-mission-guide__panel p { margin: 0; color: var(--sim-muted); font-size: .7rem; line-height: 1.55; }
+.sim-mission-steps { display: grid; gap: .45rem; margin-top: .8rem; }
+.sim-mission-steps button {
+  display: grid;
+  grid-template-columns: 32px 1fr;
+  gap: .55rem;
+  align-items: center;
+  text-align: left;
+  padding: .56rem .64rem;
+  background: rgba(255,255,255,.035);
+}
+.sim-mission-steps button i {
+  width: 30px;
+  height: 30px;
+  display: grid;
+  place-items: center;
+  border-radius: 9px;
+  background: color-mix(in srgb, var(--sim-accent) 18%, transparent);
+  color: var(--sim-accent);
+  font-style: normal;
+  font-size: .66rem;
+  font-weight: 900;
+}
+.sim-mission-steps button strong,
+.sim-mission-steps button small { display: block; }
+.sim-mission-steps button strong { font-size: .67rem; }
+.sim-mission-steps button small { margin-top: .12rem; color: var(--sim-muted); font-size: .56rem; line-height: 1.35; }
+.sim-focus-flash { animation: sim-focus-flash 1.2s ease; }
+@keyframes sim-focus-flash {
+  0%, 100% { box-shadow: inherit; }
+  35% { box-shadow: 0 0 0 4px color-mix(in srgb, var(--sim-accent) 38%, transparent), 0 0 45px color-mix(in srgb, var(--sim-accent) 25%, transparent); }
+}
+
+/* Agent Operations: cinematic 3D floor with one compact command deck */
+.agent-office .agent-ops-hud {
+  inset: 0;
+  padding: 20px;
+  display: grid;
+  grid-template-columns: minmax(320px, 460px) minmax(320px, 420px);
+  grid-template-rows: auto 1fr auto;
+  justify-content: space-between;
+  gap: 14px;
+  pointer-events: none;
+}
+.agent-office .agent-ops-hud > section:first-child {
+  align-self: start;
+  max-width: 500px;
+  padding: 1rem 1.05rem;
+  border: 1px solid rgba(167,139,250,.35);
+  border-radius: 18px;
+  background: linear-gradient(135deg, rgba(7,17,31,.9), rgba(37,22,70,.72));
+  box-shadow: 0 24px 70px rgba(0,0,0,.35);
+  backdrop-filter: blur(20px);
+}
+.agent-office .agent-ops-hud > section:first-child span { color: #c4b5fd; font-size: .56rem; font-weight: 900; letter-spacing: .16em; }
+.agent-office .agent-ops-hud > section:first-child strong { display: block; margin-top: .28rem; font-size: 1.5rem; letter-spacing: -.03em; }
+.agent-office .agent-ops-hud > section:first-child p { margin: .4rem 0 0; color: #c6d2e2; font-size: .68rem; line-height: 1.5; }
+.agent-office .agent-ops-control {
+  grid-column: 2;
+  grid-row: 1 / span 2;
+  width: 100%;
+  max-height: calc(100% - 10px);
+  overflow: auto;
+  padding: .9rem;
+  gap: .6rem;
+}
+.agent-office .agent-ops-control::before {
+  content: "SHIFT CONTROL";
+  color: #c4b5fd;
+  font-size: .54rem;
+  font-weight: 900;
+  letter-spacing: .16em;
+}
+.agent-office .agent-ops-control .sim-kpis { grid-template-columns: repeat(3, 1fr); }
+.agent-office .agent-ops-control .sim-actions { display: grid; grid-template-columns: 1fr 1fr; }
+.agent-office .agent-detail {
+  grid-column: 1;
+  grid-row: 2;
+  align-self: end;
+  max-height: 310px;
+  overflow: auto;
+  padding: .85rem;
+}
+.agent-office .agent-row { padding: .55rem 0; }
+.agent-office .agent-row button { min-width: 78px; }
+.agent-office .sim-log {
+  grid-column: 1 / -1;
+  grid-row: 3;
+  max-height: 100px;
+  pointer-events: auto;
+}
+
+/* Router: floating provider command deck, much less wall-of-controls */
+.router-console {
+  inset: auto 18px 18px 18px;
+  max-height: min(56%, 520px);
+  padding: 1rem;
+  display: grid;
+  grid-template-columns: minmax(220px, .75fr) minmax(300px, 1.25fr) minmax(280px, 1fr);
+  gap: .7rem;
+  overflow: auto;
+}
+.router-console > header {
+  grid-column: 1;
+  grid-row: 1 / span 2;
+  padding: .85rem;
+  border-radius: 14px;
+  background: linear-gradient(145deg, rgba(103,232,249,.11), rgba(255,255,255,.025));
+}
+.router-console > header span { color: #67e8f9; font-size: .54rem; font-weight: 900; letter-spacing: .16em; }
+.router-console > header strong { display: block; margin-top: .35rem; font-size: 1.35rem; }
+.router-console > header small { display: block; margin-top: .45rem; color: #b8c6d8; line-height: 1.45; }
+.router-console .router-request { grid-column: 2 / -1; display: grid; grid-template-columns: 1fr auto auto; gap: .45rem; }
+.router-console > .sim-field-grid { grid-column: 2 / -1; }
+.router-console .router-provider-grid { grid-column: 1 / -1; grid-template-columns: repeat(4, minmax(170px, 1fr)); }
+.router-console .router-provider-card {
+  min-height: 154px;
+  border-width: 1px;
+  border-top: 3px solid var(--provider);
+  border-radius: 14px;
+  background: linear-gradient(180deg, color-mix(in srgb, var(--provider) 10%, rgba(255,255,255,.025)), rgba(255,255,255,.018));
+}
+.router-console .router-provider-card header strong { font-size: .72rem; }
+.router-console .router-provider-card dl { gap: .35rem; }
+.router-console .router-trace { grid-column: 1 / -1; }
+.router-console .router-trace > section { padding: .65rem; border-radius: 14px; background: rgba(255,255,255,.025); }
+
+/* Incident: mission console on left, datacenter visible */
+.incident-console {
+  left: 18px;
+  right: auto;
+  top: 18px;
+  bottom: 18px;
+  width: min(430px, calc(100% - 36px));
+  max-height: none;
+  padding: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: .55rem;
+}
+.incident-console > header {
+  padding: .8rem;
+  border-radius: 14px;
+  background: linear-gradient(135deg, rgba(225,29,72,.18), rgba(255,255,255,.02));
+}
+.incident-console > header span { color: #fda4af; font-size: .58rem; font-weight: 900; letter-spacing: .14em; }
+.incident-console > header strong { display: block; margin-top: .28rem; font-size: 1.35rem; }
+.incident-console > header p { margin: .4rem 0 0; color: #d8bec7; line-height: 1.45; }
+.incident-console .runbook { grid-template-columns: 1fr 1fr; }
+.incident-console .runbook button { min-height: 48px; text-align: left; }
+.incident-console .incident-evidence { max-height: 150px; overflow: auto; }
+.incident-console pre[data-output] { min-height: 100px; max-height: 150px; overflow: auto; padding: .7rem; border-radius: 12px; background: rgba(0,0,0,.34); color: #fecdd3; }
+.incident-console .incident-repair { position: sticky; bottom: 0; padding-top: .4rem; background: linear-gradient(180deg, transparent, color-mix(in srgb, var(--sim-panel) 96%, transparent) 28%); }
+
+/* Voice operations: call-center product instead of plain admin grid */
+.voice-product {
+  background: linear-gradient(135deg, #edf2f7, #f8fafc 52%, #fff7ed);
+}
+.voice-product::after { background: radial-gradient(circle at 74% 18%, rgba(249,115,22,.11), transparent 35%); }
+.voice-product > header {
+  position: relative;
+  z-index: 4;
+  min-height: 78px;
+  padding: 1rem 1.2rem;
+  border-bottom: 1px solid #dce4eb;
+  background: rgba(255,255,255,.82);
+  backdrop-filter: blur(20px);
+  box-shadow: 0 12px 35px rgba(46,61,73,.08);
+}
+.voice-product > header span { color: #ea580c; font-size: .56rem; font-weight: 900; letter-spacing: .16em; }
+.voice-product > header strong { display: block; margin-top: .22rem; font-size: 1.35rem; }
+.voice-product .voice-kpis { gap: .4rem; }
+.voice-product .voice-kpis b {
+  min-width: 88px;
+  padding: .58rem .66rem;
+  border-radius: 12px;
+  background: #fff;
+  border: 1px solid #e3e8ee;
+  box-shadow: 0 8px 20px rgba(46,61,73,.06);
+  color: #334155;
+  font-size: .58rem;
+}
+.voice-product .voice-layout {
+  height: calc(100% - 78px);
+  grid-template-columns: 280px minmax(420px, 1fr) 340px;
+  gap: 12px;
+  padding: 12px;
+  background: transparent;
+}
+.voice-product .call-queue,
+.voice-product .call-focus,
+.voice-product .call-intelligence {
+  border: 1px solid #dde4eb;
+  border-radius: 18px;
+  background: rgba(255,255,255,.9);
+  box-shadow: 0 20px 55px rgba(46,61,73,.09);
+  overflow: auto;
+}
+.voice-product .call-queue { padding: .75rem; }
+.voice-product .call-queue header { position: sticky; top: 0; z-index: 2; padding-bottom: .55rem; background: rgba(255,255,255,.96); }
+.voice-product .call-queue button[data-call] {
+  min-height: 66px;
+  margin-bottom: .45rem;
+  border-radius: 14px;
+  background: #f8fafc;
+  border-color: #e3e8ee;
+}
+.voice-product .call-queue button[data-call].active { border-color: #f97316; box-shadow: 0 0 0 3px rgba(249,115,22,.12); }
+.voice-product .call-focus { padding: 1.1rem; display: flex; flex-direction: column; }
+.voice-product .caller-card {
+  padding: .9rem;
+  border-radius: 16px;
+  background: linear-gradient(135deg, #fff7ed, #fff);
+  border: 1px solid #fed7aa;
+}
+.voice-product .caller-card .avatar { background: linear-gradient(135deg, #fb923c, #ea580c); box-shadow: 0 12px 30px rgba(234,88,12,.22); }
+.voice-product .waveform { min-height: 110px; margin: .7rem 0; padding: .65rem; border-radius: 16px; background: #fff7ed; }
+.voice-product .transcript { flex: 1; min-height: 170px; border-radius: 16px; background: #f8fafc; border: 1px solid #e3e8ee; }
+.voice-product .call-actions { margin-top: .7rem; gap: .45rem; }
+.voice-product .call-actions button:first-child { background: linear-gradient(135deg,#fb923c,#ea580c); color:#fff; border-color:#ea580c; }
+.voice-product .call-intelligence { padding: .85rem; }
+.voice-product .call-intelligence h3 { color: #9a3412; font-size: .56rem; letter-spacing: .14em; }
+.voice-product .call-intelligence dl { grid-template-columns: 1fr 1fr; gap: .45rem; }
+.voice-product .call-intelligence dl div { padding: .6rem; border-radius: 12px; background: #fff7ed; border: 1px solid #fed7aa; }
+
+/* RAG: evidence workbench with clear left-to-right flow */
+.rag-studio {
+  padding: 12px;
+  display: grid;
+  grid-template-rows: auto auto minmax(0, 1fr);
+  gap: 10px;
+  background: linear-gradient(135deg, #04111d, #071c30 56%, #05243a);
+}
+.rag-studio > header,
+.rag-studio .rag-query,
+.rag-studio .rag-workspace > section {
+  border: 1px solid rgba(125,211,252,.16);
+  border-radius: 18px;
+  background: rgba(4,14,26,.82);
+  box-shadow: 0 20px 55px rgba(0,0,0,.22);
+  backdrop-filter: blur(18px);
+}
+.rag-studio > header { padding: .85rem 1rem; }
+.rag-studio > header span { color: #7dd3fc; font-size: .56rem; font-weight: 900; letter-spacing: .16em; }
+.rag-studio > header strong { display: block; margin-top: .2rem; font-size: 1.25rem; }
+.rag-studio .rag-query { padding: .8rem; }
+.rag-studio .rag-query-controls { grid-template-columns: minmax(340px, 1fr) 120px 130px; }
+.rag-studio .rag-stage-strip { gap: .35rem; margin-top: .7rem; }
+.rag-studio .rag-stage-strip > div {
+  min-height: 58px;
+  border-radius: 12px;
+  background: linear-gradient(145deg, rgba(56,189,248,.08), rgba(255,255,255,.018));
+  border: 1px solid rgba(125,211,252,.12);
+}
+.rag-studio .rag-stage-strip > div.active { box-shadow: 0 0 0 3px rgba(56,189,248,.12), 0 15px 30px rgba(14,165,233,.12); }
+.rag-studio .rag-workspace { min-height: 0; gap: 10px; }
+.rag-studio .rag-workspace > section { min-height: 0; padding: .8rem; overflow: auto; }
+.rag-studio .rag-workspace h3 { margin: 0 0 .65rem; color: #7dd3fc; font-size: .56rem; letter-spacing: .15em; }
+.rag-studio .document-stack article {
+  margin-bottom: .5rem;
+  border-radius: 14px;
+  background: linear-gradient(145deg, rgba(56,189,248,.08), rgba(255,255,255,.018));
+}
+.rag-studio .context-window pre { min-height: 260px; border-radius: 14px; background: #020812; }
+.rag-studio .answer-preview article { min-height: 220px; border-radius: 14px; background: linear-gradient(145deg, rgba(34,197,94,.08), rgba(255,255,255,.018)); }
+.rag-studio .answer-preview footer { margin-top: .6rem; padding: .7rem; border-radius: 12px; background: rgba(255,255,255,.035); }
+
+/* Release: pipeline as a visual mission map */
+.release-product {
+  padding: 12px;
+  display: grid;
+  grid-template-rows: auto minmax(210px, 36%) minmax(0, 1fr);
+  gap: 10px;
+  background: linear-gradient(135deg, #04110c, #071b14 54%, #05271c);
+}
+.release-product > header,
+.release-product .git-graph,
+.release-product .pipeline-bottom > section,
+.release-product .pipeline-bottom > aside {
+  border: 1px solid rgba(52,211,153,.16);
+  border-radius: 18px;
+  background: rgba(4,16,12,.84);
+  box-shadow: 0 20px 55px rgba(0,0,0,.25);
+  backdrop-filter: blur(18px);
+}
+.release-product > header { padding: .85rem 1rem; }
+.release-product > header span { color: #6ee7b7; font-size: .56rem; font-weight: 900; letter-spacing: .16em; }
+.release-product > header strong { display: block; margin-top: .22rem; font-size: 1.25rem; }
+.release-product .pipeline-controls { justify-content: flex-end; }
+.release-product .git-graph { min-height: 0; margin: 0; padding: .7rem .8rem 1rem; overflow-x: auto; }
+.release-product .git-graph svg { opacity: .72; }
+.release-product .git-graph article {
+  width: 110px;
+  min-height: 120px;
+  padding: .5rem;
+  border-radius: 14px;
+  background: linear-gradient(145deg, rgba(52,211,153,.08), rgba(255,255,255,.018));
+  border: 1px solid rgba(52,211,153,.13);
+  transform: translateX(-50%);
+}
+.release-product .git-graph article i { width: 42px; height: 42px; border-radius: 13px; box-shadow: 0 10px 22px rgba(0,0,0,.25); }
+.release-product .git-graph article.active { box-shadow: 0 0 0 3px rgba(52,211,153,.14), 0 20px 40px rgba(16,185,129,.14); }
+.release-product .pipeline-bottom { min-height: 0; gap: 10px; }
+.release-product .pipeline-bottom > section,
+.release-product .pipeline-bottom > aside { padding: .85rem; overflow: auto; }
+.release-product .pipeline-bottom h3 { color: #6ee7b7; font-size: .56rem; letter-spacing: .14em; }
+.release-product pre[data-pipeline-log] { min-height: 180px; border-radius: 14px; background: #020b08; }
+.release-product .release-state { padding: .85rem; border-radius: 14px; background: linear-gradient(145deg, rgba(52,211,153,.12), rgba(255,255,255,.02)); }
+.release-product .release-state strong { font-size: 1.55rem; }
+
+@media (max-width: 1120px) {
+  .router-console { grid-template-columns: 1fr 1fr; max-height: 64%; }
+  .router-console > header { grid-row: auto; }
+  .router-console .router-provider-grid { grid-template-columns: repeat(2, 1fr); }
+  .voice-product .voice-layout { grid-template-columns: 250px minmax(380px, 1fr); }
+  .voice-product .call-intelligence { grid-column: 1 / -1; max-height: 290px; }
+  .rag-studio .rag-workspace { grid-template-columns: 1fr 1fr; }
+  .rag-studio .rag-workspace > :last-child { grid-column: 1 / -1; }
+}
+@media (max-width: 780px) {
+  .sim-product { min-height: 920px; }
+  .sim-mission-guide { left: 12px; right: 12px; bottom: 12px; width: auto; }
+  .agent-office .agent-ops-hud { padding: 12px; grid-template-columns: 1fr; overflow: auto; }
+  .agent-office .agent-ops-control,
+  .agent-office .agent-detail,
+  .agent-office .sim-log { grid-column: 1; grid-row: auto; max-width: none; }
+  .router-console { inset: 12px; max-height: calc(100% - 24px); grid-template-columns: 1fr; }
+  .router-console .router-request,
+  .router-console > .sim-field-grid,
+  .router-console .router-provider-grid,
+  .router-console .router-trace { grid-column: 1; grid-template-columns: 1fr; }
+  .incident-console { inset: 12px; width: auto; }
+  .voice-product { min-height: 1100px; }
+  .voice-product > header { align-items: flex-start; gap: .7rem; flex-wrap: wrap; }
+  .voice-product .voice-kpis { grid-template-columns: 1fr 1fr; width: 100%; }
+  .voice-product .voice-layout { display: block; height: auto; }
+  .voice-product .call-queue,
+  .voice-product .call-focus,
+  .voice-product .call-intelligence { margin-bottom: 12px; max-height: none; }
+  .rag-studio,
+  .release-product { min-height: 1120px; display: block; overflow: auto; }
+  .rag-studio > *,
+  .release-product > * { margin-bottom: 10px; }
+  .rag-studio .rag-query-controls,
+  .rag-studio .rag-workspace,
+  .release-product .pipeline-bottom { display: block; }
+  .rag-studio .rag-workspace > section,
+  .release-product .pipeline-bottom > * { margin-bottom: 10px; }
+  .release-product .git-graph { min-height: 310px; }
+}
