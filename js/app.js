@@ -1,7 +1,7 @@
 import { demos, categories, byId } from './registry.js';
 
-const $ = s => document.querySelector(s);
-const stage = $('#stage');
+const $ = selector => document.querySelector(selector);
+let stage = $('#stage');
 const list = $('#demo-list');
 const categoryTabs = $('#category-tabs');
 const search = $('#search');
@@ -9,8 +9,13 @@ let active = null;
 let controller = null;
 let activeCategory = 'All';
 let telemetryTimer = null;
+let loadSequence = 0;
 
-function escapeHtml(value='') { return value.replace(/[&<>'"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c])); }
+function escapeHtml(value = '') {
+  return String(value).replace(/[&<>'"]/g, character => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;',
+  }[character]));
+}
 
 function renderCategories() {
   categoryTabs.innerHTML = categories.map(category => `<button type="button" data-category="${category}" class="${category === activeCategory ? 'active' : ''}">${category}</button>`).join('');
@@ -22,16 +27,17 @@ function renderCategories() {
 }
 
 function filtered() {
-  const q = search.value.trim().toLowerCase();
-  return demos.filter(demo => (activeCategory === 'All' || demo.category === activeCategory) && (!q || `${demo.title} ${demo.category} ${demo.summary}`.toLowerCase().includes(q)));
+  const query = search.value.trim().toLowerCase();
+  return demos.filter(demo => (activeCategory === 'All' || demo.category === activeCategory)
+    && (!query || `${demo.title} ${demo.category} ${demo.summary}`.toLowerCase().includes(query)));
 }
 
 function renderList() {
   const items = filtered();
-  list.innerHTML = items.length ? items.map((demo) => {
+  list.innerHTML = items.length ? items.map(demo => {
     const index = demos.indexOf(demo) + 1;
     return `<button type="button" data-demo="${demo.id}" class="${demo.id === active?.id ? 'active' : ''}" style="--demo-accent:${demo.accent}">
-      <span class="demo-no">${String(index).padStart(2,'0')}</span>
+      <span class="demo-no">${String(index).padStart(2, '0')}</span>
       <span><strong>${escapeHtml(demo.title)}</strong><small>${escapeHtml(demo.category)}</small></span><em></em>
     </button>`;
   }).join('') : '<p class="empty-list">No matching demos.</p>';
@@ -40,16 +46,29 @@ function renderList() {
   $('#topbar-status').textContent = `${items.length} OF ${demos.length} EXPERIENCES READY`;
 }
 
+function replaceStage() {
+  const replacement = stage.cloneNode(false);
+  replacement.innerHTML = '<div class="stage-loading"><span></span><strong>BUILDING EXPERIENCE</strong></div>';
+  stage.replaceWith(replacement);
+  stage = replacement;
+  return replacement;
+}
+
 async function selectDemo(id, options = {}) {
   const demo = byId.get(id) ?? demos[0];
   if (active?.id === demo.id && !options.force) return;
+  const sequence = ++loadSequence;
   clearInterval(telemetryTimer);
-  try { controller?.dispose?.(); } catch (error) { console.warn('Dispose failed', error); }
+  telemetryTimer = null;
+  const previousController = controller;
   controller = null;
+  try { previousController?.dispose?.(); } catch (error) { console.warn('Dispose failed', error); }
+
+  const localStage = replaceStage();
   active = demo;
   if (location.hash.slice(1) !== demo.id) history.replaceState(null, '', `#${demo.id}`);
   document.documentElement.style.setProperty('--active-accent', demo.accent);
-  $('#demo-index').textContent = String(demos.indexOf(demo) + 1).padStart(2,'0');
+  $('#demo-index').textContent = String(demos.indexOf(demo) + 1).padStart(2, '0');
   $('#demo-category').textContent = demo.category.toUpperCase();
   $('#demo-title').textContent = demo.title;
   $('#demo-summary').textContent = demo.summary;
@@ -57,16 +76,22 @@ async function selectDemo(id, options = {}) {
   $('#engine-label').textContent = demo.engine;
   $('#fps-label').textContent = '--';
   $('#scene-label').textContent = '--';
-  stage.innerHTML = '<div class="stage-loading"><span></span><strong>BUILDING EXPERIENCE</strong></div>';
   renderList();
   closeLibrary();
   await new Promise(resolve => requestAnimationFrame(resolve));
+
   try {
-    controller = await demo.factory({ stage, demo, toast, selectDemo });
+    const nextController = await demo.factory({ stage: localStage, demo, toast, selectDemo });
+    if (sequence !== loadSequence || localStage !== stage) {
+      try { nextController?.dispose?.(); } catch (error) { console.warn('Late demo cleanup failed', error); }
+      return;
+    }
+    controller = nextController;
     stage.focus({ preventScroll: true });
     updateTelemetry();
     telemetryTimer = setInterval(updateTelemetry, 750);
   } catch (error) {
+    if (sequence !== loadSequence || localStage !== stage) return;
     console.error(error);
     stage.innerHTML = `<div class="stage-error"><strong>Experience failed to start</strong><p>${escapeHtml(error.message || String(error))}</p><button type="button" data-retry>Retry</button></div>`;
     stage.querySelector('[data-retry]').addEventListener('click', () => selectDemo(demo.id, { force: true }));
@@ -75,7 +100,7 @@ async function selectDemo(id, options = {}) {
 }
 
 function updateTelemetry() {
-  if (!controller) return;
+  if (!controller || !active) return;
   const stats = controller.getStats?.() ?? {};
   $('#engine-label').textContent = stats.engine ?? active.engine;
   $('#fps-label').textContent = stats.fps ?? 'N/A';
@@ -84,7 +109,7 @@ function updateTelemetry() {
 
 function reset() {
   if (controller?.reset) controller.reset();
-  else selectDemo(active.id, { force: true });
+  else if (active) selectDemo(active.id, { force: true });
   toast('Demo reset');
 }
 
@@ -95,17 +120,25 @@ function move(delta) {
 }
 
 function toast(message) {
-  const el = document.createElement('div');
-  el.className = 'toast';
-  el.textContent = message;
-  $('#toast-region').append(el);
-  setTimeout(() => el.remove(), 2200);
+  const element = document.createElement('div');
+  element.className = 'toast';
+  element.textContent = message;
+  $('#toast-region').append(element);
+  setTimeout(() => element.remove(), 2200);
 }
 
 const library = $('#library');
 const scrim = $('#mobile-scrim');
-function openLibrary() { library.classList.add('open'); scrim.hidden = false; $('#menu-button').setAttribute('aria-expanded','true'); }
-function closeLibrary() { library.classList.remove('open'); scrim.hidden = true; $('#menu-button').setAttribute('aria-expanded','false'); }
+function openLibrary() {
+  library.classList.add('open');
+  scrim.hidden = false;
+  $('#menu-button').setAttribute('aria-expanded', 'true');
+}
+function closeLibrary() {
+  library.classList.remove('open');
+  scrim.hidden = true;
+  $('#menu-button').setAttribute('aria-expanded', 'false');
+}
 
 $('#menu-button').addEventListener('click', () => library.classList.contains('open') ? closeLibrary() : openLibrary());
 scrim.addEventListener('click', closeLibrary);
@@ -124,7 +157,10 @@ window.addEventListener('keydown', event => {
   if (event.key === ']') move(1);
   if (event.key === 'Escape') closeLibrary();
 });
-window.addEventListener('beforeunload', () => controller?.dispose?.());
+window.addEventListener('beforeunload', () => {
+  clearInterval(telemetryTimer);
+  controller?.dispose?.();
+});
 
 renderCategories();
 renderList();
