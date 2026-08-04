@@ -53,7 +53,7 @@ jobs:
       - name: Exercise fixed live controls
         shell: bash
         run: |
-          cat > /tmp/verify-live.mjs <<'EOF'
+          cat > verify-live.mjs <<'EOF'
           import { chromium } from 'playwright';
 
           const base = 'https://bradleymatera.github.io/GameTesting/';
@@ -95,4 +95,4 @@ jobs:
           await browser.close();
           console.log('Live GitHub Pages controls passed.');
           EOF
-          node /tmp/verify-live.mjs
+          node verify-live.mjs
