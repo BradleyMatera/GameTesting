@@ -11,7 +11,7 @@ permissions:
 jobs:
   validate:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@v6
       - uses: actions/setup-node@v5
@@ -28,18 +28,23 @@ jobs:
           required=(
             index.html README.md .nojekyll
             css/base.css css/components.css css/layouts.css css/sites.css
-            css/tools-a.css css/tools-b.css css/responsive.css
+            css/tools-a.css css/tools-b.css css/tool-products.css css/tool-product-layouts.css css/responsive.css
             js/app.js js/registry.js js/core/scene.js js/core/scene-base.js js/core/scene-models.js
             js/demos/experience.js js/demos/simulations.js js/demos/websites.js js/demos/tools.js js/demos/games.js
+            js/demos/tools/tool-utils.js js/demos/tools/architecture-builder.js js/demos/tools/workflow-designer.js
+            js/demos/tools/seo-auditor.js js/demos/tools/accessibility-lab.js js/demos/tools/api-failure-lab.js
+            js/demos/tools/shader-lab.js js/demos/tools/world-generator.js
             assets/asset-manifest.md assets/agency-hero.svg assets/golf-products.svg
             assets/lms-course.svg assets/construction-site.svg assets/portfolio-projects.svg
-            tests/visual-smoke.mjs
+            tests/visual-smoke.mjs tests/tool-workflows.mjs
           )
           for file in "${required[@]}"; do test -s "$file"; done
           count=$(grep -c "^  d('" js/registry.js)
           test "$count" -eq 25
           game_count=$(find js/demos/games -maxdepth 1 -type f -name '*.js' | wc -l)
           test "$game_count" -eq 6
+          tool_count=$(find js/demos/tools -maxdepth 1 -type f -name '*.js' ! -name 'tool-utils.js' | wc -l)
+          test "$tool_count" -eq 7
           test ! -e styles.css
           test ! -e lab-expansion.css
           test ! -e production-v2.css
@@ -83,8 +88,8 @@ jobs:
           sleep 2
           curl --fail http://127.0.0.1:8080/index.html >/dev/null
           curl --fail http://127.0.0.1:8080/js/app.js >/dev/null
-          curl --fail http://127.0.0.1:8080/js/registry.js >/dev/null
-          curl --fail http://127.0.0.1:8080/assets/agency-hero.svg >/dev/null
+          curl --fail http://127.0.0.1:8080/js/demos/tools/tool-utils.js >/dev/null
+          curl --fail http://127.0.0.1:8080/css/tool-product-layouts.css >/dev/null
 
       - name: Install browser test dependency
         run: |
@@ -94,3 +99,6 @@ jobs:
 
       - name: Run all-demo browser smoke test
         run: node tests/visual-smoke.mjs
+
+      - name: Run complete tool workflow tests
+        run: node tests/tool-workflows.mjs
