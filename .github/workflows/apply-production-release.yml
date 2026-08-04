@@ -28,7 +28,6 @@ jobs:
         run: |
           set -euo pipefail
           tr -d '\r\n\t ' < .production-v3.tar.gz.b64 > /tmp/production-v3.tar.gz.b64
-          echo "8aa01128693deaf136bf4fbd800a797b97d5b66e2000cfda83e7d200952e5a46  /tmp/production-v3.tar.gz.b64" | sha256sum -c -
           base64 -d /tmp/production-v3.tar.gz.b64 > /tmp/production-v3.tar.gz
           echo "7215da8a043e9a044a6874d9182d344863a1040794639e09beb8dfc25a83d979  /tmp/production-v3.tar.gz" | sha256sum -c -
           rm -rf /tmp/production-v3
