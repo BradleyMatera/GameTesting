@@ -8,19 +8,22 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 env:
   BASE_URL: https://bradleymatera.github.io/GameTesting/
 
 jobs:
   screenshots:
+    if: github.actor != 'github-actions[bot]'
     runs-on: ubuntu-latest
     timeout-minutes: 15
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Set up Node
         uses: actions/setup-node@v4
@@ -35,6 +38,7 @@ jobs:
       - name: Capture every live demo
         shell: bash
         run: |
+          rm -rf audit-screenshots
           mkdir -p audit-screenshots
           cat > capture-audit.mjs <<'EOF'
           import { chromium } from 'playwright';
@@ -46,7 +50,7 @@ jobs:
           const browser = await chromium.launch({ headless: true });
           const report = [];
 
-          async function capture(viewport, suffix, fullPage = true) {
+          async function capture(viewport, suffix) {
             const page = await browser.newPage({ viewport });
             for (let index = 0; index < ids.length; index += 1) {
               const id = ids[index];
@@ -74,6 +78,7 @@ jobs:
                 const stage = document.querySelector('#demo-stage');
                 const library = document.querySelector('#demo-library');
                 const surface = document.querySelector('#demo-stage .demo-surface');
+                const intro = document.querySelector('.intro-panel');
                 const rect = element => element ? element.getBoundingClientRect().toJSON() : null;
                 return {
                   title: document.querySelector('#demo-title')?.textContent?.trim() || '',
@@ -84,12 +89,17 @@ jobs:
                   stage: rect(stage),
                   library: rect(library),
                   surface: rect(surface),
+                  intro: rect(intro),
                   bodyMode: document.body.dataset.demoMode || '',
+                  canvasCount: document.querySelectorAll('#demo-stage canvas').length,
+                  imageCount: document.querySelectorAll('#demo-stage img').length,
+                  svgCount: document.querySelectorAll('#demo-stage svg').length,
+                  buttonCount: document.querySelectorAll('#demo-stage button').length,
                 };
               });
 
               const filename = `audit-screenshots/${String(index + 1).padStart(2, '0')}-${id}-${suffix}.png`;
-              await page.screenshot({ path: filename, fullPage });
+              await page.screenshot({ path: filename, fullPage: false });
               report.push({ id, suffix, status: response?.status(), errors, metrics, filename });
             }
             await page.close();
@@ -102,9 +112,12 @@ jobs:
           EOF
           node capture-audit.mjs
 
-      - name: Upload screenshot audit
-        uses: actions/upload-artifact@v4
-        with:
-          name: current-live-audit
-          path: audit-screenshots
-          retention-days: 3
+      - name: Commit audit output to main
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add audit-screenshots
+          git commit -m "Capture current live visual audit"
+          git push origin HEAD:main
