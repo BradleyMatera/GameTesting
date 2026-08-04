@@ -6,7 +6,7 @@ on:
     paths:
       - ".release-payload/**"
       - ".github/workflows/apply-production-release.yml"
-  pull_request_target:
+  pull_request:
     branches: [main]
     types: [opened, synchronize, reopened]
   workflow_dispatch:
@@ -20,7 +20,7 @@ concurrency:
 
 jobs:
   apply:
-    if: github.event_name == 'pull_request_target' || github.actor != 'github-actions[bot]' || github.event_name == 'workflow_dispatch'
+    if: github.event_name == 'pull_request' || github.actor != 'github-actions[bot]' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
