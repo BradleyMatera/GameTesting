@@ -1,145 +1,74 @@
 <!doctype html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="theme-color" content="#071019" />
-    <meta
-      name="description"
-      content="Brad Matera's interactive frontend systems lab: 3D experiences, realistic simulations, complete website demos, useful tools, and playable browser games."
-    />
-    <title>Brad Matera // Interactive Systems Lab</title>
-    <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin />
-    <link rel="stylesheet" href="./styles.css" />
-    <link rel="stylesheet" href="./lab-expansion.css" />
-    <script src="https://cdn.jsdelivr.net/npm/babylonjs@9.18.0/babylon.min.js" defer></script>
-    <script type="module" src="./js/app.js"></script>
-  </head>
-  <body>
-    <a class="skip-link" href="#demo-stage">Skip to active demo</a>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="theme-color" content="#07111f" />
+  <meta name="description" content="Brad Matera's production interactive systems lab: distinct 3D simulations, complete website concepts, engineering tools, and six Babylon.js games." />
+  <title>Brad Matera | Interactive Systems Lab</title>
+  <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin />
+  <link rel="stylesheet" href="./css/base.css" />
+  <link rel="stylesheet" href="./css/components.css" />
+  <link rel="stylesheet" href="./css/layouts.css" />
+  <link rel="stylesheet" href="./css/sites.css" />
+  <link rel="stylesheet" href="./css/tools-a.css" />
+  <link rel="stylesheet" href="./css/tools-b.css" />
+  <link rel="stylesheet" href="./css/responsive.css" />
+  <script src="https://cdn.jsdelivr.net/npm/babylonjs@9.18.0/babylon.min.js" defer></script>
+  <script type="module" src="./js/app.js"></script>
+</head>
+<body>
+  <a class="skip-link" href="#stage">Skip to active demo</a>
+  <div class="lab-shell" id="lab-shell">
+    <header class="lab-topbar">
+      <button class="icon-button menu-button" id="menu-button" type="button" aria-label="Open demo library" aria-expanded="false" aria-controls="library"><span></span><span></span><span></span></button>
+      <a class="lab-brand" href="#digital-command-center" aria-label="Interactive Systems Lab home">
+        <span class="brand-monogram">BM</span>
+        <span><strong>INTERACTIVE SYSTEMS LAB</strong><small>BRAD MATERA · BABYLON.JS · FRONTEND ENGINEERING</small></span>
+      </a>
+      <div class="topbar-status"><i></i><span id="topbar-status">25 EXPERIENCES READY</span></div>
+      <a class="source-button" href="https://github.com/BradleyMatera/GameTesting" target="_blank" rel="noreferrer">SOURCE ↗</a>
+    </header>
 
-    <main class="app-shell">
-      <canvas id="renderCanvas" aria-label="Interactive Babylon.js scene"></canvas>
-      <section id="demo-stage" class="demo-stage" aria-label="Interactive frontend demo" hidden></section>
-      <div class="scene-vignette" aria-hidden="true"></div>
-      <div class="scanlines" aria-hidden="true"></div>
+    <aside class="library" id="library" aria-label="Demo library">
+      <div class="library-intro">
+        <span>PRODUCTION GALLERY</span>
+        <strong>Choose an experience</strong>
+        <p>Every game uses Babylon.js. Simulations, tools, and websites use the interaction model that fits the work.</p>
+      </div>
+      <label class="library-search"><span class="sr-only">Search demos</span><input id="search" type="search" placeholder="Search 25 demos" autocomplete="off" /><b>⌕</b></label>
+      <nav class="category-tabs" id="category-tabs" aria-label="Categories"></nav>
+      <nav class="demo-list" id="demo-list" aria-label="Demos"></nav>
+      <footer class="library-footer"><span>REAL-TIME ENGINE</span><strong>BABYLON.JS 9.18</strong><small>Original procedural models and repository-owned SVG art.</small></footer>
+    </aside>
 
-      <header class="topbar">
-        <button
-          id="library-toggle"
-          class="library-toggle"
-          type="button"
-          aria-label="Open demo library"
-          aria-controls="demo-library"
-          aria-expanded="false"
-        >
-          <span></span><span></span><span></span>
-        </button>
-
-        <a class="brand" href="./" aria-label="Brad Matera Interactive Systems Lab home">
-          <span class="brand-mark" aria-hidden="true">BM</span>
-          <span>
-            <strong>BRAD MATERA</strong>
-            <small>INTERACTIVE SYSTEMS LAB</small>
-          </span>
-        </a>
-
-        <div class="system-status" aria-label="System status">
-          <span class="status-pulse" aria-hidden="true"></span>
-          <span>25 WORKING DEMOS ONLINE</span>
+    <main class="workspace" id="workspace">
+      <section class="demo-bar" aria-live="polite">
+        <div class="demo-identity"><span id="demo-index">01</span><div><small id="demo-category">EXPERIENCE</small><h1 id="demo-title">Digital Command Center</h1></div></div>
+        <p id="demo-summary">An explorable map of Brad's cloud, agent, and frontend systems.</p>
+        <div class="demo-actions">
+          <button id="reset-demo" type="button">Reset</button>
+          <button id="fullscreen-demo" type="button">Fullscreen</button>
+          <button id="previous-demo" type="button" aria-label="Previous demo">←</button>
+          <button id="next-demo" type="button" aria-label="Next demo">→</button>
         </div>
-
-        <a class="source-link" href="https://github.com/BradleyMatera/GameTesting" target="_blank" rel="noreferrer">
-          View source
-          <span aria-hidden="true">↗</span>
-        </a>
-      </header>
-
-      <aside id="demo-library" class="demo-library" aria-label="Demo library">
-        <header class="library-heading">
-          <div>
-            <p>EXPERIMENT LIBRARY</p>
-            <strong id="demo-count">25 / 25</strong>
-          </div>
-          <button type="button" class="library-close" onclick="document.querySelector('#library-toggle').click()" aria-label="Close demo library">×</button>
-        </header>
-
-        <label class="demo-search">
-          <span class="visually-hidden">Search demos</span>
-          <i aria-hidden="true">⌕</i>
-          <input id="demo-search" type="search" placeholder="Search systems, websites, tools, games..." autocomplete="off" />
-        </label>
-
-        <nav id="category-nav" class="category-nav" aria-label="Demo categories"></nav>
-        <nav id="demo-nav" class="demo-nav" aria-label="Available demos"></nav>
-
-        <footer class="library-footer">
-          <span>BUILT WITH</span>
-          <strong>BABYLON.JS • CANVAS • JAVASCRIPT</strong>
-          <small>No dead demo cards. Every listed experience is interactive.</small>
-        </footer>
-      </aside>
-
-      <section class="intro-panel" aria-labelledby="demo-title">
-        <div class="intro-meta">
-          <p class="eyebrow"><span id="demo-number">01</span> ACTIVE DEMO</p>
-          <strong id="demo-category">EXPERIENCES</strong>
-        </div>
-        <h1 id="demo-title">DIGITAL<br /><em>COMMAND CENTER</em></h1>
-        <p id="demo-description" class="intro-copy">
-          An explorable 3D map of Brad Matera's cloud systems, AI agents, web engineering, and interactive technology.
-        </p>
-
-        <div id="lab-controls" class="control-row" aria-label="Demo controls">
-          <button id="tour-toggle" class="primary-control" type="button" aria-pressed="false">
-            <span class="button-icon" aria-hidden="true">▶</span>
-            Guided orbit
-          </button>
-          <button id="reset-view" class="secondary-control" type="button">Reset demo</button>
-        </div>
-
-        <p id="control-hint" class="control-hint">
-          Drag to rotate • Scroll to zoom • Select a glowing system node
-        </p>
       </section>
 
-      <div class="sequence-controls" aria-label="Browse demos">
-        <button id="previous-demo" type="button" aria-label="Previous demo">←</button>
-        <span><kbd>[</kbd> <kbd>]</kbd></span>
-        <button id="next-demo" type="button" aria-label="Next demo">→</button>
-      </div>
+      <section class="stage" id="stage" tabindex="-1" aria-label="Active interactive demo">
+        <div class="stage-loading" id="stage-loading"><span></span><strong>BUILDING EXPERIENCE</strong></div>
+      </section>
 
-      <aside id="detail-panel" class="detail-panel" aria-live="polite" aria-labelledby="detail-title">
-        <div class="detail-heading">
-          <span id="detail-index">EXPERIENCES 01</span>
-          <span class="detail-line" aria-hidden="true"></span>
-        </div>
-        <h2 id="detail-title">Digital Command Center</h2>
-        <p id="detail-kicker">INTERACTIVE FRONTEND DEMO</p>
-        <p id="detail-copy">
-          Select a component inside a demo to inspect how it works and what the interaction represents.
-        </p>
-        <div id="detail-tags" class="detail-tags" aria-label="Demo technologies">
-          <span>Experiences</span><span>Babylon.js</span><span>Responsive</span>
-        </div>
-      </aside>
-
-      <footer class="telemetry" aria-label="Demo telemetry">
-        <div><span>ENGINE</span><strong id="engine-mode">INITIALIZING</strong></div>
-        <div><span>FPS</span><strong id="fps-counter">--</strong></div>
-        <div><span>ELEMENTS</span><strong id="mesh-counter">--</strong></div>
-        <div class="telemetry-wide"><span>MISSION</span><strong>BUILD USEFUL THINGS THAT ACTUALLY WORK</strong></div>
+      <footer class="telemetry" id="telemetry">
+        <div><span>ENGINE</span><strong id="engine-label">INITIALIZING</strong></div>
+        <div><span>FPS</span><strong id="fps-label">--</strong></div>
+        <div><span>SCENE</span><strong id="scene-label">--</strong></div>
+        <div class="telemetry-help"><span>CONTROLS</span><strong id="controls-label">Choose a demo to begin</strong></div>
       </footer>
-
-      <div id="loading-screen" class="loading-screen" role="status" aria-live="polite">
-        <div class="loader-mark" aria-hidden="true"><span></span><span></span><span></span></div>
-        <p>LOADING INTERACTIVE DEMO</p>
-      </div>
-
-      <div id="error-screen" class="error-screen" hidden>
-        <strong>Demo failed to start.</strong>
-        <p>Check the browser console or network connection.</p>
-      </div>
     </main>
-  </body>
+
+    <div class="mobile-scrim" id="mobile-scrim" hidden></div>
+    <div class="toast-region" id="toast-region" aria-live="polite"></div>
+  </div>
+  <noscript>This gallery requires JavaScript.</noscript>
+</body>
 </html>
