@@ -51,7 +51,12 @@ jobs:
               chunks = sorted(payload.glob(f'{stem}.*.b64'))
               if not chunks:
                   raise SystemExit(f'Missing payload chunks for {stem}')
-              encoded = ''.join(chunk.read_text(encoding='utf-8').strip() for chunk in chunks)
+              texts = []
+              for chunk in chunks:
+                  text = chunk.read_text(encoding='utf-8').strip()
+                  print(f'Chunk {chunk.name}: chars={len(text)}, sha256={hashlib.sha256(text.encode()).hexdigest()}')
+                  texts.append(text)
+              encoded = ''.join(texts)
               generated = gzip.decompress(base64.b64decode(encoded, validate=True))
               actual_sha = hashlib.sha256(generated).hexdigest()
               if actual_sha != expected_sha:
