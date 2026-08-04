@@ -7,7 +7,7 @@
 .metric-card small { color: var(--surface-muted, #8da0ba); font-size: .65rem; }
 
 /* Website frames */
-.website-frame { min-height: 100%; background: var(--site-bg); color: var(--site-text); font-family: var(--site-font, Inter, sans-serif); overflow: auto; }
+.website-frame { height: 100%; min-height: 0; background: var(--site-bg); color: var(--site-text); font-family: var(--site-font, Inter, sans-serif); overflow-x: hidden; overflow-y: auto; overscroll-behavior: contain; scrollbar-gutter: stable; -webkit-overflow-scrolling: touch; }
 .website-frame button, .website-frame a { font-family: inherit; }
 .site-nav { min-height: 68px; display: flex; align-items: center; gap: 1rem; padding: 0 clamp(1rem, 4vw, 3.5rem); position: sticky; top: 0; z-index: 5; background: color-mix(in srgb, var(--site-bg) 92%, transparent); backdrop-filter: blur(14px); border-bottom: 1px solid color-mix(in srgb, var(--site-text) 14%, transparent); }
 .site-nav .site-logo { font-weight: 900; letter-spacing: -.04em; margin-right: auto; }
