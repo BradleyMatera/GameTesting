@@ -1,34 +1,46 @@
 import { categories, demos, getDemo, getDemosByCategory } from "./demo-registry.js";
 
-const canvas = document.querySelector("#renderCanvas");
-const stage = document.querySelector("#demo-stage");
-const loadingScreen = document.querySelector("#loading-screen");
-const errorScreen = document.querySelector("#error-screen");
-const demoNav = document.querySelector("#demo-nav");
-const categoryNav = document.querySelector("#category-nav");
-const searchInput = document.querySelector("#demo-search");
-const library = document.querySelector("#demo-library");
-const libraryToggle = document.querySelector("#library-toggle");
-const demoCount = document.querySelector("#demo-count");
-const title = document.querySelector("#demo-title");
-const description = document.querySelector("#demo-description");
-const demoNumber = document.querySelector("#demo-number");
-const demoCategory = document.querySelector("#demo-category");
-const controlHint = document.querySelector("#control-hint");
-const tourToggle = document.querySelector("#tour-toggle");
-const resetButton = document.querySelector("#reset-view");
-const previousButton = document.querySelector("#previous-demo");
-const nextButton = document.querySelector("#next-demo");
-const fpsCounter = document.querySelector("#fps-counter");
-const meshCounter = document.querySelector("#mesh-counter");
-const engineMode = document.querySelector("#engine-mode");
+const productionStyles = document.createElement("link");
+productionStyles.rel = "stylesheet";
+productionStyles.href = "./production-v2.css";
+document.head.append(productionStyles);
 
-const detailPanel = document.querySelector("#detail-panel");
-const detailIndex = document.querySelector("#detail-index");
-const detailTitle = document.querySelector("#detail-title");
-const detailKicker = document.querySelector("#detail-kicker");
-const detailCopy = document.querySelector("#detail-copy");
-const detailTags = document.querySelector("#detail-tags");
+const $ = (selector) => document.querySelector(selector);
+const canvas = $("#renderCanvas");
+const stage = $("#demo-stage");
+const loadingScreen = $("#loading-screen");
+const errorScreen = $("#error-screen");
+const demoNav = $("#demo-nav");
+const categoryNav = $("#category-nav");
+const searchInput = $("#demo-search");
+const library = $("#demo-library");
+const libraryToggle = $("#library-toggle");
+const demoCount = $("#demo-count");
+const title = $("#demo-title");
+const description = $("#demo-description");
+const demoNumber = $("#demo-number");
+const demoCategory = $("#demo-category");
+const controlHint = $("#control-hint");
+const tourToggle = $("#tour-toggle");
+const resetButton = $("#reset-view");
+const previousButton = $("#previous-demo");
+const nextButton = $("#next-demo");
+const fpsCounter = $("#fps-counter");
+const meshCounter = $("#mesh-counter");
+const engineMode = $("#engine-mode");
+const detailIndex = $("#detail-index");
+const detailTitle = $("#detail-title");
+const detailKicker = $("#detail-kicker");
+const detailCopy = $("#detail-copy");
+const detailTags = $("#detail-tags");
+const controlRow = $("#lab-controls");
+
+const fullscreenButton = document.createElement("button");
+fullscreenButton.id = "fullscreen-demo";
+fullscreenButton.className = "secondary-control fullscreen-control";
+fullscreenButton.type = "button";
+fullscreenButton.textContent = "Full screen";
+controlRow.append(fullscreenButton);
 
 let activeController = null;
 let activeDemo = null;
@@ -52,13 +64,11 @@ function renderDetail(detail) {
   detailKicker.textContent = detail.kicker || "WORKING FRONTEND EXPERIENCE";
   detailCopy.textContent = detail.copy || activeDemo?.description || "";
   const tags = detail.tags || [activeDemo?.category || "Interactive", "Browser", "Brad Matera"];
-  detailTags.replaceChildren(
-    ...tags.map((tag) => {
-      const item = document.createElement("span");
-      item.textContent = tag;
-      return item;
-    }),
-  );
+  detailTags.replaceChildren(...tags.map((tag) => {
+    const item = document.createElement("span");
+    item.textContent = tag;
+    return item;
+  }));
 }
 
 function renderCategoryNav() {
@@ -89,7 +99,6 @@ function renderDemoNav() {
   visibleDemos = filteredDemos();
   demoCount.textContent = `${visibleDemos.length} / ${demos.length}`;
   demoNav.replaceChildren();
-
   if (!visibleDemos.length) {
     const empty = document.createElement("p");
     empty.className = "nav-empty";
@@ -97,7 +106,6 @@ function renderDemoNav() {
     demoNav.append(empty);
     return;
   }
-
   let currentCategory = "";
   visibleDemos.forEach((demo) => {
     if (activeCategory === "All" && demo.category !== currentCategory) {
@@ -107,33 +115,28 @@ function renderDemoNav() {
       heading.textContent = currentCategory;
       demoNav.append(heading);
     }
-
     const button = document.createElement("button");
     button.className = `demo-button${demo.id === activeDemo?.id ? " active" : ""}`;
     button.type = "button";
     button.dataset.demoId = demo.id;
-    button.innerHTML = `
-      <span class="demo-number">${demo.number}</span>
-      <span class="demo-name">${demo.shortTitle}<small>${demo.category} • ${demo.status}</small></span>
-      <span class="demo-arrow" aria-hidden="true">→</span>
-    `;
+    button.innerHTML = `<span class="demo-number">${demo.number}</span><span class="demo-name">${demo.shortTitle}<small>${demo.category} • ${demo.status}</small></span><span class="demo-arrow" aria-hidden="true">→</span>`;
     button.addEventListener("click", () => loadDemo(demo.id));
     demoNav.append(button);
   });
+  requestAnimationFrame(() => demoNav.querySelector(".demo-button.active")?.scrollIntoView({ block: "nearest" }));
 }
 
 function setControlMode(demo) {
   guidedMode = false;
   tourToggle.setAttribute("aria-pressed", "false");
-  resetButton.textContent = demo.category === "Games" ? "Restart" : "Reset demo";
+  resetButton.textContent = demo.category === "Games" ? "Restart" : "Reset";
   controlHint.textContent = demo.controls;
-
   if (demo.mode === "babylon") {
     tourToggle.hidden = false;
     tourToggle.innerHTML = '<span class="button-icon" aria-hidden="true">▶</span> Guided orbit';
   } else if (demo.category === "Systems") {
     tourToggle.hidden = false;
-    tourToggle.innerHTML = '<span class="button-icon" aria-hidden="true">Ⅱ</span> Pause simulation';
+    tourToggle.innerHTML = '<span class="button-icon" aria-hidden="true">Ⅱ</span> Pause';
   } else {
     tourToggle.hidden = true;
   }
@@ -151,20 +154,18 @@ async function loadDemo(id, { updateHistory = true } = {}) {
   const demo = getDemo(id);
   if (!demo) return;
   const sequence = ++loadSequence;
-
   loadingScreen.classList.remove("done");
   errorScreen.hidden = true;
   clearInterval(telemetryTimer);
   activeController?.dispose?.();
   activeController = null;
   activeDemo = demo;
-
   canvas.hidden = demo.mode !== "babylon";
   stage.hidden = demo.mode === "babylon";
   stage.replaceChildren();
   document.body.dataset.demoMode = demo.mode;
   document.body.dataset.demoCategory = demo.category.toLowerCase();
-
+  document.body.dataset.demoId = demo.id;
   demoNumber.textContent = demo.number;
   demoCategory.textContent = demo.category.toUpperCase();
   title.innerHTML = titleMarkup(demo.title);
@@ -172,34 +173,18 @@ async function loadDemo(id, { updateHistory = true } = {}) {
   setControlMode(demo);
   renderDemoNav();
   updateSequenceControls();
-  renderDetail({
-    index: `${demo.category.toUpperCase()} ${demo.number}`,
-    title: demo.title,
-    kicker: "INTERACTIVE FRONTEND DEMO",
-    copy: demo.description,
-    tags: [demo.category, demo.mode === "babylon" ? "Babylon.js" : "JavaScript", demo.category === "Games" ? "Playable" : "Responsive"],
-  });
-
+  renderDetail({ index: `${demo.category.toUpperCase()} ${demo.number}`, title: demo.title, kicker: demo.category === "Games" ? "DISTINCT PLAYABLE MECHANIC" : "PURPOSE-BUILT INTERACTIVE SYSTEM", copy: demo.description, tags: [demo.category, demo.mode === "babylon" ? "Babylon.js" : "JavaScript", "Purpose-built"] });
   try {
     if (demo.mode === "babylon" && !window.BABYLON) throw new Error("Babylon.js did not load.");
-
-    const controller = await demo.create({
-      canvas,
-      stage,
-      demo,
-      onSelect: renderDetail,
-      onReady: ({ engineType }) => {
-        if (sequence !== loadSequence) return;
-        engineMode.textContent = engineType;
-        loadingScreen.classList.add("done");
-      },
-    });
-
+    const controller = await demo.create({ canvas, stage, demo, onSelect: renderDetail, onReady: ({ engineType }) => {
+      if (sequence !== loadSequence) return;
+      engineMode.textContent = engineType;
+      loadingScreen.classList.add("done");
+    }});
     if (sequence !== loadSequence) {
       controller?.dispose?.();
       return;
     }
-
     activeController = controller;
     telemetryTimer = window.setInterval(() => {
       if (!activeController) return;
@@ -207,7 +192,6 @@ async function loadDemo(id, { updateHistory = true } = {}) {
       fpsCounter.textContent = stats.fps ?? "60";
       meshCounter.textContent = stats.meshes ?? stage.querySelectorAll("*").length;
     }, 500);
-
     if (updateHistory) {
       const url = new URL(window.location.href);
       url.searchParams.set("demo", demo.id);
@@ -235,30 +219,30 @@ libraryToggle.addEventListener("click", () => {
   const open = library.classList.toggle("open");
   libraryToggle.setAttribute("aria-expanded", String(open));
 });
-
 tourToggle.addEventListener("click", () => {
   guidedMode = !guidedMode;
   tourToggle.setAttribute("aria-pressed", String(guidedMode));
   if (activeDemo?.mode === "babylon") {
-    tourToggle.innerHTML = guidedMode
-      ? '<span class="button-icon" aria-hidden="true">Ⅱ</span> Pause orbit'
-      : '<span class="button-icon" aria-hidden="true">▶</span> Guided orbit';
+    tourToggle.innerHTML = guidedMode ? '<span class="button-icon" aria-hidden="true">Ⅱ</span> Pause orbit' : '<span class="button-icon" aria-hidden="true">▶</span> Guided orbit';
   } else {
-    tourToggle.innerHTML = guidedMode
-      ? '<span class="button-icon" aria-hidden="true">▶</span> Resume simulation'
-      : '<span class="button-icon" aria-hidden="true">Ⅱ</span> Pause simulation';
+    tourToggle.innerHTML = guidedMode ? '<span class="button-icon" aria-hidden="true">▶</span> Resume' : '<span class="button-icon" aria-hidden="true">Ⅱ</span> Pause';
   }
   activeController?.setGuidedOrbit?.(guidedMode);
 });
-
 resetButton.addEventListener("click", () => activeController?.resetCamera?.());
 previousButton.addEventListener("click", () => moveDemo(-1));
 nextButton.addEventListener("click", () => moveDemo(1));
-
+fullscreenButton.addEventListener("click", async () => {
+  const target = activeDemo?.mode === "babylon" ? $(".app-shell") : stage;
+  if (!document.fullscreenElement) await target.requestFullscreen?.();
+  else await document.exitFullscreen?.();
+});
+document.addEventListener("fullscreenchange", () => { fullscreenButton.textContent = document.fullscreenElement ? "Exit full screen" : "Full screen"; });
 window.addEventListener("keydown", (event) => {
   if (event.target instanceof HTMLInputElement || event.target instanceof HTMLTextAreaElement || event.target instanceof HTMLSelectElement) return;
   if (event.key === "[") moveDemo(-1);
   if (event.key === "]") moveDemo(1);
+  if (event.key.toLowerCase() === "f") fullscreenButton.click();
   if (event.key === "Escape") {
     library.classList.remove("open");
     libraryToggle.setAttribute("aria-expanded", "false");
@@ -268,17 +252,14 @@ window.addEventListener("keydown", (event) => {
 async function boot() {
   renderCategoryNav();
   renderDemoNav();
-  try {
-    const requested = new URLSearchParams(window.location.search).get("demo");
-    await loadDemo(requested, { updateHistory: Boolean(requested) });
-  } catch (error) {
-    console.error(error);
-    loadingScreen.classList.add("done");
-    errorScreen.hidden = false;
-  }
+  const requested = new URLSearchParams(window.location.search).get("demo");
+  await loadDemo(requested, { updateHistory: Boolean(requested) });
 }
-
-window.addEventListener("DOMContentLoaded", boot);
+window.addEventListener("DOMContentLoaded", () => boot().catch((error) => {
+  console.error(error);
+  loadingScreen.classList.add("done");
+  errorScreen.hidden = false;
+}));
 window.addEventListener("beforeunload", () => {
   clearInterval(telemetryTimer);
   activeController?.dispose?.();
