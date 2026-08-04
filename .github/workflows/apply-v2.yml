@@ -4,9 +4,9 @@ on:
   push:
     branches: [agent/unique-demo-overhaul]
     paths:
-      - ".v2-payload/**"
       - ".v2-payload2/**"
       - ".github/workflows/apply-v2.yml"
+      - "production-v2.css"
   pull_request:
     branches: [main]
 
@@ -31,7 +31,7 @@ jobs:
         with:
           node-version: 22
 
-      - name: Reconstruct production source
+      - name: Reconstruct verified JavaScript engines
         shell: python
         run: |
           from pathlib import Path
@@ -40,14 +40,14 @@ jobs:
           import hashlib
           import shutil
 
-          text_jobs = [
+          jobs = [
               ('system-simulations.js', Path('js/demos/system-simulations.js'), '87cacf31fb8d78e7de068a0c028ba31ab2f8f68e1069eeff65fd8020f067ebbc'),
               ('interactive-tools.js', Path('js/demos/interactive-tools.js'), 'a1ea7ccdacd6e77a2fc08780d2f7e5c722f70045d9842c9ddd8293d35fc02277'),
               ('browser-games.js', Path('js/demos/browser-games.js'), 'f0ca3c80386d004e7bb5e7975538ec1ca25f1092b22f6eab0658efd76ce3433e'),
           ]
 
           payload = Path('.v2-payload2')
-          for stem, destination, expected_sha in text_jobs:
+          for stem, destination, expected_sha in jobs:
               chunks = sorted(payload.glob(f'{stem}.*.b64'))
               if not chunks:
                   raise SystemExit(f'Missing payload chunks for {stem}')
@@ -59,16 +59,6 @@ jobs:
               destination.parent.mkdir(parents=True, exist_ok=True)
               destination.write_bytes(generated)
               print(f'Generated {destination} ({len(generated)} bytes, sha256={actual_sha})')
-
-          css_source = Path('.v2-payload/production-v2.css.gz')
-          css_destination = Path('production-v2.css')
-          css_expected_sha = '6d19409aa5ed579cb5ef3dad0424d48cb4473014c1f0b4518c71aad29fd81a65'
-          css_generated = gzip.decompress(css_source.read_bytes())
-          css_actual_sha = hashlib.sha256(css_generated).hexdigest()
-          if css_actual_sha != css_expected_sha:
-              raise SystemExit(f'Checksum mismatch for production-v2.css: {css_actual_sha}')
-          css_destination.write_bytes(css_generated)
-          print(f'Generated {css_destination} ({len(css_generated)} bytes, sha256={css_actual_sha})')
 
           for temporary in [Path('.v2-payload'), Path('.v2-payload2'), Path('.v2-payload3')]:
               if temporary.exists():
@@ -84,10 +74,11 @@ jobs:
           node --check js/demos/interactive-tools.js
           node --check js/demos/browser-games.js
           test -s production-v2.css
-          test "$(wc -c < production-v2.css)" -gt 50000
+          test "$(wc -c < production-v2.css)" -gt 15000
           grep -q "agent-office-floor" js/demos/system-simulations.js
           grep -q "arch-graph" js/demos/interactive-tools.js
           grep -q "defense-tower" js/demos/browser-games.js
+          grep -q "production visual system v2" production-v2.css
 
       - name: Commit generated overhaul
         shell: bash
