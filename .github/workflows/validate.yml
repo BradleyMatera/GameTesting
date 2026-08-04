@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   validate:
@@ -102,3 +102,17 @@ jobs:
 
       - name: Run complete tool workflow tests
         run: node tests/tool-workflows.mjs
+
+      - name: Publish validation result
+        if: always()
+        env:
+          RESULT: ${{ job.status }}
+          SOURCE_SHA: ${{ github.sha }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          printf '# Production Validation\n\n- Result: **%s**\n- Source commit: `%s`\n- Run: %s\n- Completed: %s UTC\n' "$RESULT" "$SOURCE_SHA" "$RUN_URL" "$(date -u '+%Y-%m-%d %H:%M:%S')" > VALIDATION_STATUS.md
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add VALIDATION_STATUS.md
+          git commit -m 'chore: record production validation [skip ci]' || exit 0
+          git push
