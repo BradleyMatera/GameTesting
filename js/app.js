@@ -78,11 +78,10 @@ function mountSimulationGuide(demo, localStage) {
   const config = simulationGuides[demo.id];
   const root = localStage.querySelector('.sim-product');
   if (!config || !root) return;
-  const key = `simulation-guide-seen:${demo.id}`;
   const guide = document.createElement('aside');
   guide.className = 'sim-mission-guide';
-  guide.dataset.open = sessionStorage.getItem(key) ? 'false' : 'true';
-  guide.innerHTML = `<button class="sim-mission-guide__toggle" type="button" aria-expanded="${guide.dataset.open}">Mission guide</button>
+  guide.dataset.open = 'false';
+  guide.innerHTML = `<button class="sim-mission-guide__toggle" type="button" aria-expanded="false">Mission guide</button>
     <div class="sim-mission-guide__panel">
       <span>HOW TO USE THIS SIMULATION</span>
       <h3>${escapeHtml(config.title)}</h3>
@@ -91,17 +90,17 @@ function mountSimulationGuide(demo, localStage) {
     </div>`;
   root.append(guide);
   const toggle = guide.querySelector('.sim-mission-guide__toggle');
-  toggle.addEventListener('click', () => {
-    const open = guide.dataset.open !== 'true';
+  const setOpen = open => {
     guide.dataset.open = String(open);
     toggle.setAttribute('aria-expanded', String(open));
-    if (!open) sessionStorage.setItem(key, '1');
-  });
+  };
+  toggle.addEventListener('click', () => setOpen(guide.dataset.open !== 'true'));
   guide.addEventListener('click', event => {
     const button = event.target.closest('[data-guide-target]');
     if (!button) return;
     const target = localStage.querySelector(button.dataset.guideTarget);
     if (!target) return;
+    setOpen(false);
     target.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'nearest' });
     target.classList.remove('sim-focus-flash');
     requestAnimationFrame(() => target.classList.add('sim-focus-flash'));
