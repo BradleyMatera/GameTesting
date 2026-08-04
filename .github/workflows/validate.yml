@@ -1,0 +1,96 @@
+name: Validate Production Lab
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+
+      - name: Check JavaScript syntax
+        run: find js tests -type f \( -name '*.js' -o -name '*.mjs' \) -print0 | sort -z | xargs -0 -n1 node --check
+
+      - name: Verify production structure
+        shell: bash
+        run: |
+          set -euo pipefail
+          required=(
+            index.html README.md .nojekyll
+            css/base.css css/components.css css/layouts.css css/sites.css
+            css/tools-a.css css/tools-b.css css/responsive.css
+            js/app.js js/registry.js js/core/scene.js js/core/scene-base.js js/core/scene-models.js
+            js/demos/experience.js js/demos/simulations.js js/demos/websites.js js/demos/tools.js js/demos/games.js
+            assets/asset-manifest.md assets/agency-hero.svg assets/golf-products.svg
+            assets/lms-course.svg assets/construction-site.svg assets/portfolio-projects.svg
+            tests/visual-smoke.mjs
+          )
+          for file in "${required[@]}"; do test -s "$file"; done
+          count=$(grep -c "^  d('" js/registry.js)
+          test "$count" -eq 25
+          game_count=$(find js/demos/games -maxdepth 1 -type f -name '*.js' | wc -l)
+          test "$game_count" -eq 6
+          test ! -e styles.css
+          test ! -e lab-expansion.css
+          test ! -e production-v2.css
+          test ! -e js/demo-registry.js
+          test ! -e .release-payload
+          test ! -e .production-v3.tar.gz.b64
+
+      - name: Verify local imports and page assets
+        run: |
+          node --input-type=module <<'NODE'
+          import fs from 'node:fs';
+          import path from 'node:path';
+          const files = [];
+          const walk = dir => fs.readdirSync(dir, { withFileTypes: true }).forEach(entry => {
+            const full = path.join(dir, entry.name);
+            if (entry.isDirectory()) walk(full);
+            else if (/\.(js|mjs)$/.test(entry.name)) files.push(full);
+          });
+          walk('js');
+          for (const file of files) {
+            const text = fs.readFileSync(file, 'utf8');
+            for (const match of text.matchAll(/(?:from\s+|import\s*)['"](\.[^'"]+)['"]/g)) {
+              const resolved = path.resolve(path.dirname(file), match[1]);
+              const target = path.extname(resolved) ? resolved : `${resolved}.js`;
+              if (!fs.existsSync(target)) throw new Error(`${file}: missing import ${match[1]}`);
+            }
+          }
+          const html = fs.readFileSync('index.html', 'utf8');
+          for (const match of html.matchAll(/(?:href|src)="(\.\/[^"?#]+)"/g)) {
+            const target = match[1].slice(2);
+            if (!fs.existsSync(target)) throw new Error(`index.html: missing asset ${target}`);
+          }
+          console.log(`Verified ${files.length} JavaScript modules and all local page assets.`);
+          NODE
+
+      - name: Static server smoke test
+        run: |
+          python3 -m http.server 8080 >/tmp/server.log 2>&1 &
+          pid=$!
+          trap 'kill $pid' EXIT
+          sleep 2
+          curl --fail http://127.0.0.1:8080/index.html >/dev/null
+          curl --fail http://127.0.0.1:8080/js/app.js >/dev/null
+          curl --fail http://127.0.0.1:8080/js/registry.js >/dev/null
+          curl --fail http://127.0.0.1:8080/assets/agency-hero.svg >/dev/null
+
+      - name: Install browser test dependency
+        run: |
+          npm init -y >/dev/null 2>&1
+          npm install --no-save playwright@1.55.0
+          npx playwright install --with-deps chromium
+
+      - name: Run all-demo browser smoke test
+        run: node tests/visual-smoke.mjs
