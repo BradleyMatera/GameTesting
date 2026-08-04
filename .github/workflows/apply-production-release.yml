@@ -1,11 +1,6 @@
 name: Apply production release
 
 on:
-  push:
-    branches: [main]
-    paths:
-      - ".release-payload/**"
-      - ".github/workflows/apply-production-release.yml"
   pull_request:
     branches: [main]
     types: [opened, synchronize, reopened]
@@ -20,7 +15,6 @@ concurrency:
 
 jobs:
   apply:
-    if: github.event_name == 'pull_request' || github.actor != 'github-actions[bot]' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -33,32 +27,17 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          echo "Release payload inventory:"
-          find .release-payload -maxdepth 1 -type f -printf '%f %s bytes\n' | sort
-          chunks=()
-          missing=0
-          for number in $(seq 0 16); do
-            chunk=$(printf '.release-payload/chunk-%03d' "$number")
-            if [[ ! -s "$chunk" ]]; then
-              echo "MISSING: $chunk"
-              missing=1
-            else
-              chunks+=("$chunk")
-            fi
-          done
-          [[ "$missing" -eq 0 ]]
-          cat "${chunks[@]}" | tr -d '\r\n\t ' > /tmp/release.tar.gz.b64
-          base64 -d /tmp/release.tar.gz.b64 > /tmp/release.tar.gz
-          echo "ee7ecfb68b3a9b7cd675b8f40111e7821663c0a39a5d855c8c14816365c93555  /tmp/release.tar.gz" | sha256sum -c -
-          rm -rf /tmp/production-release
-          mkdir -p /tmp/production-release
-          tar -xzf /tmp/release.tar.gz -C /tmp/production-release
+          tr -d '\r\n\t ' < .production-v3.tar.gz.b64 > /tmp/production-v3.tar.gz.b64
+          echo "8aa01128693deaf136bf4fbd800a797b97d5b66e2000cfda83e7d200952e5a46  /tmp/production-v3.tar.gz.b64" | sha256sum -c -
+          base64 -d /tmp/production-v3.tar.gz.b64 > /tmp/production-v3.tar.gz
+          echo "7215da8a043e9a044a6874d9182d344863a1040794639e09beb8dfc25a83d979  /tmp/production-v3.tar.gz" | sha256sum -c -
+          rm -rf /tmp/production-v3
+          mkdir -p /tmp/production-v3
+          tar -xzf /tmp/production-v3.tar.gz -C /tmp/production-v3
           find . -mindepth 1 -maxdepth 1 ! -name .git -exec rm -rf {} +
-          cp -a /tmp/production-release/. .
-          rm -rf .release-payload
-          rm -f .github/workflows/apply-production-release.yml
+          cp -a /tmp/production-v3/. .
 
-      - name: Commit production release to main
+      - name: Commit production source tree to main
         shell: bash
         run: |
           set -euo pipefail
@@ -66,5 +45,5 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add -A
           git diff --cached --stat
-          git commit -m "release: rebuild lab as production 3D showcase"
+          git commit -m "release: ship production interactive systems lab"
           git push origin HEAD:main
