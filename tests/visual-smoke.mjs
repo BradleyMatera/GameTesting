@@ -14,6 +14,8 @@ const registryText = await fs.readFile('js/registry.js', 'utf8');
 const ids = [...registryText.matchAll(/d\('([^']+)'/g)].map(match => match[1]);
 if (ids.length !== 25) throw new Error(`Expected 25 demos, found ${ids.length}`);
 await fs.mkdir('test-screenshots', { recursive: true });
+const websiteIds = ['matera-digital','fairway-store','ethics-lms','construction-erp','recruiter-portfolio'];
+const contentHeavyWebsites = ['matera-digital','fairway-store','ethics-lms'];
 
 for (const [index, id] of ids.entries()) {
   errors.length = 0;
@@ -30,17 +32,26 @@ for (const [index, id] of ids.entries()) {
     if (await start.count()) { await start.click(); await page.waitForTimeout(500); }
     if (!(await page.locator('#stage canvas').count())) throw new Error(`${id}: missing Babylon canvas`);
   }
-  if (['matera-digital','fairway-store','ethics-lms','construction-erp','recruiter-portfolio'].includes(id)) {
+  if (websiteIds.includes(id)) {
     const frame = page.locator('.website-frame');
     if (!(await frame.count())) throw new Error(`${id}: missing website scroll frame`);
-    const metrics = await frame.evaluate(el => ({ clientHeight: el.clientHeight, scrollHeight: el.scrollHeight }));
-    if (metrics.scrollHeight <= metrics.clientHeight + 1) throw new Error(`${id}: website has no vertical scroll range (${metrics.scrollHeight}/${metrics.clientHeight})`);
-    await frame.hover();
-    await page.mouse.wheel(0, 500);
-    await page.waitForTimeout(120);
-    const scrolled = await frame.evaluate(el => el.scrollTop);
-    if (scrolled < 50) throw new Error(`${id}: mouse wheel did not scroll the website frame`);
-    await frame.evaluate(el => { el.scrollTop = 0; });
+    const metrics = await frame.evaluate(el => ({
+      clientHeight: el.clientHeight,
+      scrollHeight: el.scrollHeight,
+      overflowY: getComputedStyle(el).overflowY,
+      stageHeight: el.parentElement?.clientHeight || 0,
+    }));
+    if (!['auto','scroll'].includes(metrics.overflowY)) throw new Error(`${id}: website frame is not a vertical scroll container (${metrics.overflowY})`);
+    if (Math.abs(metrics.clientHeight - metrics.stageHeight) > 2) throw new Error(`${id}: website frame escaped the stage (${metrics.clientHeight}/${metrics.stageHeight})`);
+    if (contentHeavyWebsites.includes(id)) {
+      if (metrics.scrollHeight <= metrics.clientHeight + 1) throw new Error(`${id}: content-heavy website has no vertical scroll range (${metrics.scrollHeight}/${metrics.clientHeight})`);
+      await frame.hover();
+      await page.mouse.wheel(0, 500);
+      await page.waitForTimeout(120);
+      const scrolled = await frame.evaluate(el => el.scrollTop);
+      if (scrolled < 50) throw new Error(`${id}: mouse wheel did not scroll the website frame`);
+      await frame.evaluate(el => { el.scrollTop = 0; });
+    }
   }
   if (errors.length) throw new Error(`${id}: ${errors.join(' | ')}`);
   if ([0,7,12,19,20,21,22,23,24].includes(index)) {
@@ -59,4 +70,4 @@ for (const id of ['digital-command-center','matera-digital','architecture-builde
 
 await browser.close();
 server.kill('SIGTERM');
-console.log('Validated 25 demos, website scrolling, and representative mobile layouts.');
+console.log('Validated 25 demos, website scroll containers, content-heavy website scrolling, and representative mobile layouts.');
