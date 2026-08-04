@@ -97,7 +97,7 @@ export async function createCloudIncident({ stage, toast }) {
   pulse(alert, scene, { range: .15, speed: 5 });
   const alertLabel = label(scene, 'ACTIVE INCIDENT', [5, 7.5, 4], { width: 4.2, height: .72, fontSize: 46, border: '#ff4d6d' });
 
-  const guard = createRunGuard();
+  const actionGuard = createRunGuard();
   let scenarioId = 'db-pool';
   let metrics = {};
   let evidence = new Set();
@@ -152,11 +152,9 @@ export async function createCloudIncident({ stage, toast }) {
     render();
   }
   function startClock() {
-    guard.cancel();
-    const token = guard.begin();
     clearInterval(timer);
     timer = setInterval(() => {
-      if (!guard.active(token) || resolved) return;
+      if (resolved) return;
       seconds += 1;
       if (seconds % 30 === 0) {
         const current = scenario();
@@ -169,6 +167,7 @@ export async function createCloudIncident({ stage, toast }) {
     }, 1000);
   }
   function loadScenario(id) {
+    actionGuard.cancel();
     scenarioId = id;
     metrics = { ...scenario().metrics };
     evidence = new Set();
@@ -187,8 +186,8 @@ export async function createCloudIncident({ stage, toast }) {
     if (resolved || button.classList.contains('running')) return;
     button.classList.add('running');
     qs(stage, '[data-output]').textContent = `Running ${type} diagnostic…`;
-    const token = guard.begin();
-    if (!(await guard.wait(token, 520))) return;
+    const token = actionGuard.begin();
+    if (!(await actionGuard.wait(token, 520))) return;
     button.classList.remove('running');
     evidence.add(type);
     const content = interpolate(scenario().evidence[type], metrics);
@@ -199,9 +198,9 @@ export async function createCloudIncident({ stage, toast }) {
   async function applyRepair() {
     if (evidence.size < 2 || resolved) return;
     const selected = qs(stage, '[data-repair]').value;
-    const token = guard.begin();
+    const token = actionGuard.begin();
     qs(stage, '[data-output]').textContent = 'Applying repair and verifying health…';
-    if (!(await guard.wait(token, 700))) return;
+    if (!(await actionGuard.wait(token, 700))) return;
     if (selected === scenario().correctRepair) {
       resolved = true;
       metrics = { latency: scenarioId === 'queue-backlog' ? 210 : 182, errorRate: .1, saturation: 44, throughput: scenarioId === 'queue-backlog' ? 96 : 118 };
@@ -216,7 +215,7 @@ export async function createCloudIncident({ stage, toast }) {
       metrics.saturation = Math.min(100, metrics.saturation + 4);
       metrics.throughput = Math.max(0, metrics.throughput - 8);
       appendLog(stage, '[data-log]', `Incorrect repair applied: ${repairs.find(([id]) => id === selected)[1]}. Impact increased.`, 'danger');
-      qs(stage, '[data-output]').textContent = `Repair did not address the evidence. Customer impact increased.\nReview the collected metrics, logs, traces, and dependency health before trying again.`;
+      qs(stage, '[data-output]').textContent = 'Repair did not address the evidence. Customer impact increased.\nReview the collected metrics, logs, traces, and dependency health before trying again.';
       toast('Repair failed verification');
     }
     render();
@@ -243,7 +242,7 @@ export async function createCloudIncident({ stage, toast }) {
 
   loadScenario('db-pool');
   return {
-    dispose() { guard.cancel(); clearInterval(timer); scene.onPointerObservable.remove(pointerObserver); ctx.dispose(); },
+    dispose() { actionGuard.cancel(); clearInterval(timer); scene.onPointerObservable.remove(pointerObserver); ctx.dispose(); },
     reset() { loadScenario('db-pool'); qs(stage, '[data-scenario]').value = 'db-pool'; },
     getStats() { return { ...ctx.stats('3D INCIDENT STATE SIM'), scene: `${scenario().severity} · ${evidence.size} evidence sources · ${resolved ? 'resolved' : 'active'}` }; },
   };
