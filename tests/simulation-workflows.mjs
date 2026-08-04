@@ -34,7 +34,10 @@ await page.locator('[data-action="block"]').click();
 if (Number(await page.locator('[data-blocked]').innerText()) !== 1) throw new Error('Agent Operations: blocker did not stop a selected task.');
 await page.locator('[data-action="resolve"]').click();
 if (Number(await page.locator('[data-blocked]').innerText()) !== 0) throw new Error('Agent Operations: blocker did not resolve.');
-for (let index = 0; index < 34; index += 1) await page.locator('[data-action="step"]').click();
+await page.locator('[data-action="step"]').evaluate((button) => {
+  for (let index = 0; index < 34; index += 1) button.click();
+});
+await page.waitForTimeout(250);
 if (Number(await page.locator('[data-done]').innerText()) < 1) throw new Error('Agent Operations: tasks never reached delivery.');
 const beforeAdd = Number(await page.locator('[data-queue]').innerText());
 await page.locator('[data-new-task]').fill('Verify simulation release evidence');
