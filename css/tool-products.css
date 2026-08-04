@@ -1,0 +1,93 @@
+/* Shared production behavior for the seven engineering tools. */
+.tool-product {
+  height: 100%;
+  min-height: 0;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  background: var(--tool-bg, #f4f7fb);
+  color: var(--tool-text, #172033);
+  overflow: hidden;
+}
+.tool-product * { min-width: 0; }
+.tool-product__toolbar,
+.tool-product__statusbar {
+  display: flex;
+  align-items: center;
+  gap: .55rem;
+  padding: .7rem .85rem;
+  background: var(--tool-panel, #fff);
+  border-color: var(--tool-line, #d6dfeb);
+}
+.tool-product__toolbar { border-bottom: 1px solid var(--tool-line, #d6dfeb); }
+.tool-product__statusbar { border-top: 1px solid var(--tool-line, #d6dfeb); font-size: .64rem; color: var(--tool-muted, #66758b); }
+.tool-product__toolbar > div:first-child { margin-right: auto; }
+.tool-product__toolbar h2 { margin: 0; font-size: 1rem; }
+.tool-product__toolbar p { margin: .15rem 0 0; font-size: .68rem; color: var(--tool-muted, #66758b); }
+.tool-product button,
+.tool-product input,
+.tool-product select,
+.tool-product textarea {
+  border: 1px solid var(--tool-line, #cbd7e6);
+  border-radius: .48rem;
+  background: var(--tool-control, #fff);
+  color: inherit;
+}
+.tool-product button { padding: .52rem .68rem; font-size: .67rem; font-weight: 750; }
+.tool-product button.primary { border-color: var(--tool-accent, #2563eb); background: var(--tool-accent, #2563eb); color: var(--tool-accent-text, #fff); }
+.tool-product button.danger { border-color: #ef4444; color: #b91c1c; background: #fff5f5; }
+.tool-product button:disabled { opacity: .42; cursor: not-allowed; }
+.tool-product input,
+.tool-product select,
+.tool-product textarea { width: 100%; padding: .5rem .55rem; font-size: .68rem; }
+.tool-product textarea { resize: vertical; line-height: 1.48; }
+.tool-product label { display: grid; gap: .25rem; font-size: .58rem; color: var(--tool-muted, #66758b); }
+.tool-product__workspace { min-height: 0; overflow: hidden; display: grid; }
+.tool-panel { min-height: 0; overflow: auto; background: var(--tool-panel, #fff); border-color: var(--tool-line, #d6dfeb); }
+.tool-panel__heading { margin: 0 0 .65rem; font-size: .56rem; letter-spacing: .12em; color: var(--tool-muted, #66758b); }
+.tool-field-grid { display: grid; grid-template-columns: 1fr 1fr; gap: .55rem; }
+.tool-button-row { display: flex; flex-wrap: wrap; gap: .4rem; }
+.tool-chip-row { display: flex; gap: .35rem; flex-wrap: wrap; }
+.tool-chip { border: 1px solid var(--tool-line, #d6dfeb); border-radius: 999px; padding: .28rem .45rem; font-size: .55rem; background: color-mix(in srgb, var(--tool-panel, #fff) 88%, var(--tool-accent, #2563eb)); }
+.tool-empty { margin: auto; max-width: 420px; padding: 2rem; text-align: center; color: var(--tool-muted, #66758b); line-height: 1.5; }
+.tool-notice { border-left: 3px solid var(--notice, var(--tool-accent, #2563eb)); background: color-mix(in srgb, var(--notice, var(--tool-accent, #2563eb)) 9%, var(--tool-panel, #fff)); padding: .55rem .65rem; border-radius: .35rem; font-size: .65rem; line-height: 1.45; }
+.tool-notice[data-tone="danger"] { --notice: #ef4444; }
+.tool-notice[data-tone="warning"] { --notice: #f59e0b; }
+.tool-notice[data-tone="success"] { --notice: #10b981; }
+.tool-table { width: 100%; border-collapse: collapse; font-size: .62rem; }
+.tool-table th,
+.tool-table td { padding: .48rem; border-bottom: 1px solid var(--tool-line, #d6dfeb); vertical-align: top; text-align: left; }
+.tool-table th { position: sticky; top: 0; z-index: 1; background: var(--tool-panel, #fff); color: var(--tool-muted, #66758b); font-size: .53rem; letter-spacing: .08em; }
+.tool-modal { position: absolute; inset: 0; z-index: 50; display: grid; place-items: center; padding: 1rem; background: rgba(3,8,18,.68); }
+.tool-modal[hidden] { display: none; }
+.tool-modal__card { width: min(620px, 100%); max-height: min(680px, 90%); overflow: auto; background: var(--tool-panel, #fff); border: 1px solid var(--tool-line, #d6dfeb); border-radius: .85rem; padding: 1rem; box-shadow: 0 24px 70px rgba(0,0,0,.35); }
+.tool-modal__card h3 { margin-top: 0; }
+.tool-code { font: 600 .62rem/1.5 ui-monospace, SFMono-Regular, Menlo, monospace; white-space: pre-wrap; overflow-wrap: anywhere; }
+.tool-progress { height: 7px; border-radius: 999px; background: color-mix(in srgb, var(--tool-line, #d6dfeb) 70%, transparent); overflow: hidden; }
+.tool-progress > i { display: block; height: 100%; width: var(--value, 0%); background: var(--tool-accent, #2563eb); transition: width .25s ease; }
+.tool-split-3 { grid-template-columns: minmax(180px, 240px) minmax(360px, 1fr) minmax(220px, 300px); }
+.tool-split-2 { grid-template-columns: minmax(220px, 320px) minmax(420px, 1fr); }
+.tool-inspector { padding: .8rem; }
+.tool-inspector section + section { margin-top: 1rem; padding-top: .8rem; border-top: 1px solid var(--tool-line, #d6dfeb); }
+.tool-inspector h3 { margin: 0 0 .65rem; font-size: .58rem; letter-spacing: .1em; color: var(--tool-muted, #66758b); }
+.tool-inspector p { font-size: .64rem; line-height: 1.48; color: var(--tool-muted, #66758b); }
+.tool-kpis { display: grid; grid-template-columns: repeat(2, 1fr); gap: .4rem; }
+.tool-kpi { padding: .5rem; border: 1px solid var(--tool-line, #d6dfeb); border-radius: .48rem; background: color-mix(in srgb, var(--tool-panel, #fff) 94%, var(--tool-accent, #2563eb)); }
+.tool-kpi span,
+.tool-kpi strong { display: block; }
+.tool-kpi span { font-size: .5rem; color: var(--tool-muted, #66758b); }
+.tool-kpi strong { margin-top: .12rem; font-size: .75rem; }
+
+@media (max-width: 1050px) {
+  .tool-split-3 { grid-template-columns: 200px minmax(360px, 1fr); }
+  .tool-split-3 > :last-child { grid-column: 1 / -1; border-top: 1px solid var(--tool-line, #d6dfeb); }
+}
+@media (max-width: 780px) {
+  .tool-product { min-height: 760px; height: auto; overflow: visible; }
+  .tool-product__toolbar { align-items: flex-start; flex-wrap: wrap; }
+  .tool-product__toolbar > div:first-child { width: 100%; }
+  .tool-product__workspace,
+  .tool-split-3,
+  .tool-split-2 { display: block; overflow: visible; }
+  .tool-panel { max-height: none; overflow: visible; border-bottom: 1px solid var(--tool-line, #d6dfeb); }
+  .tool-field-grid { grid-template-columns: 1fr; }
+}
