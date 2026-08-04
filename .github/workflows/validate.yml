@@ -105,11 +105,11 @@ jobs:
           npm install --no-save playwright@1.55.0
           npx playwright install --with-deps chromium
 
-      - name: Run all-demo browser smoke test
-        run: node tests/visual-smoke.mjs
-
       - name: Run complete simulation workflow tests
         run: node tests/simulation-workflows.mjs
+
+      - name: Run all-demo browser smoke test
+        run: node tests/visual-smoke.mjs
 
       - name: Run complete tool workflow tests
         run: node tests/tool-workflows.mjs
@@ -119,7 +119,7 @@ jobs:
         env:
           RESULT: ${{ job.status }}
           SOURCE_SHA: ${{ github.sha }}
-          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository}/actions/runs/${{ github.run_id }}
         run: |
           printf '# Production Validation\n\n- Result: **%s**\n- Source commit: `%s`\n- Run: %s\n- Completed: %s UTC\n' "$RESULT" "$SOURCE_SHA" "$RUN_URL" "$(date -u '+%Y-%m-%d %H:%M:%S')" > VALIDATION_STATUS.md
           git config user.name github-actions[bot]
