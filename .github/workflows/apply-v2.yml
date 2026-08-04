@@ -46,6 +46,9 @@ jobs:
               'browser-games.js': (Path('js/demos/browser-games.js'), 'f0ca3c80386d004e7bb5e7975538ec1ca25f1092b22f6eab0658efd76ce3433e'),
               'production-v2.css': (Path('production-v2.css'), '6d19409aa5ed579cb5ef3dad0424d48cb4473014c1f0b4518c71aad29fd81a65'),
           }
+          expected_chunk_hashes = {
+              'production-v2.css.01.b64': 'a8fb5803936288ed58dcda7099952b25ccd2b3118250ca70d49b57af729a2bb5',
+          }
 
           for stem, (destination, expected_sha) in mapping.items():
               chunks = sorted(payload.glob(f'{stem}.*.b64'))
@@ -54,7 +57,21 @@ jobs:
               texts = []
               for chunk in chunks:
                   text = chunk.read_text(encoding='utf-8').strip()
-                  print(f'Chunk {chunk.name}: chars={len(text)}, sha256={hashlib.sha256(text.encode()).hexdigest()}')
+                  expected_chunk_sha = expected_chunk_hashes.get(chunk.name)
+                  actual_chunk_sha = hashlib.sha256(text.encode()).hexdigest()
+                  if expected_chunk_sha and actual_chunk_sha != expected_chunk_sha and len(text) == 8001:
+                      repaired = None
+                      for index in range(len(text)):
+                          candidate = text[:index] + text[index + 1:]
+                          if hashlib.sha256(candidate.encode()).hexdigest() == expected_chunk_sha:
+                              repaired = candidate
+                              print(f'Repaired duplicated character in {chunk.name} at index {index}')
+                              break
+                      if repaired is None:
+                          raise SystemExit(f'Unable to checksum-repair {chunk.name}')
+                      text = repaired
+                      actual_chunk_sha = expected_chunk_sha
+                  print(f'Chunk {chunk.name}: chars={len(text)}, sha256={actual_chunk_sha}')
                   texts.append(text)
               encoded = ''.join(texts)
               generated = gzip.decompress(base64.b64decode(encoded, validate=True))
