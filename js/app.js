@@ -11,10 +11,102 @@ let activeCategory = 'All';
 let telemetryTimer = null;
 let loadSequence = 0;
 
+const simulationGuides = {
+  'agent-operations': {
+    title: 'Run the operations floor',
+    description: 'Start the shift, watch work move through four departments, then select an agent when you need to inspect or interrupt the system.',
+    steps: [
+      ['01', 'Control the shift', 'Start, pause, step, or add work.', '.agent-ops-control'],
+      ['02', 'Inspect an agent', 'Select a person to see skills, assignment, and blockers.', '.agent-detail'],
+      ['03', 'Read the event trail', 'Confirm exactly how tasks moved and completed.', '[data-log]'],
+    ],
+  },
+  'llm-router': {
+    title: 'Route one request across providers',
+    description: 'Enter a prompt, choose a policy, configure provider health, and watch the request fail over through the ranked network.',
+    steps: [
+      ['01', 'Create the request', 'Choose prompt, policy, and deterministic seed.', '.router-request'],
+      ['02', 'Configure providers', 'Enable providers and inject realistic failure modes.', '[data-providers]'],
+      ['03', 'Inspect the route', 'Review attempts, total latency, quota, and final answer.', '.router-trace'],
+    ],
+  },
+  'cloud-incident': {
+    title: 'Diagnose before you repair',
+    description: 'Collect independent evidence, identify the failing service in the 3D data center, then apply and verify the correct repair.',
+    steps: [
+      ['01', 'Collect evidence', 'Inspect metrics, logs, traces, and dependencies.', '.runbook'],
+      ['02', 'Build the diagnosis', 'Compare evidence and the selected rack.', '[data-evidence]'],
+      ['03', 'Repair and verify', 'Choose a repair only after the evidence gate unlocks.', '.incident-repair'],
+    ],
+  },
+  'voice-ops': {
+    title: 'Manage the live call floor',
+    description: 'Choose the next caller, operate the active call, then save the appointment, notes, transfer, or resolution.',
+    steps: [
+      ['01', 'Work the queue', 'Answer the highest-priority waiting call.', '.call-queue'],
+      ['02', 'Operate the call', 'Answer, hold, resume, transfer, or resolve.', '.call-focus'],
+      ['03', 'Finish the outcome', 'Save intelligence, appointment, and operator notes.', '.call-intelligence'],
+    ],
+  },
+  'projecthub-rag': {
+    title: 'Trace a grounded answer',
+    description: 'Ask a recruiter question, tune retrieval, inspect the evidence and context, then verify the final claims and citations.',
+    steps: [
+      ['01', 'Ask and configure', 'Set the question, Top K, and evidence threshold.', '.rag-query'],
+      ['02', 'Review evidence', 'Include or exclude retrieved sources.', '[data-documents]'],
+      ['03', 'Judge the answer', 'Check citations, unsupported claims, and coverage.', '.answer-preview'],
+    ],
+  },
+  'release-pipeline': {
+    title: 'Ship or safely stop the release',
+    description: 'Set the version and failure condition, run every release gate, repair failures, then deploy or roll back production.',
+    steps: [
+      ['01', 'Configure the release', 'Choose version, gates, and an optional forced failure.', '.pipeline-controls'],
+      ['02', 'Follow every gate', 'Watch the current phase and failure location.', '.git-graph'],
+      ['03', 'Verify production', 'Read artifacts, logs, deployment state, and rollback readiness.', '.pipeline-bottom'],
+    ],
+  },
+};
+
 function escapeHtml(value = '') {
   return String(value).replace(/[&<>'"]/g, character => ({
     '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;',
   }[character]));
+}
+
+function mountSimulationGuide(demo, localStage) {
+  const config = simulationGuides[demo.id];
+  const root = localStage.querySelector('.sim-product');
+  if (!config || !root) return;
+  const key = `simulation-guide-seen:${demo.id}`;
+  const guide = document.createElement('aside');
+  guide.className = 'sim-mission-guide';
+  guide.dataset.open = sessionStorage.getItem(key) ? 'false' : 'true';
+  guide.innerHTML = `<button class="sim-mission-guide__toggle" type="button" aria-expanded="${guide.dataset.open}">Mission guide</button>
+    <div class="sim-mission-guide__panel">
+      <span>HOW TO USE THIS SIMULATION</span>
+      <h3>${escapeHtml(config.title)}</h3>
+      <p>${escapeHtml(config.description)}</p>
+      <div class="sim-mission-steps">${config.steps.map(([number, title, detail, target]) => `<button type="button" data-guide-target="${escapeHtml(target)}"><i>${number}</i><span><strong>${escapeHtml(title)}</strong><small>${escapeHtml(detail)}</small></span></button>`).join('')}</div>
+    </div>`;
+  root.append(guide);
+  const toggle = guide.querySelector('.sim-mission-guide__toggle');
+  toggle.addEventListener('click', () => {
+    const open = guide.dataset.open !== 'true';
+    guide.dataset.open = String(open);
+    toggle.setAttribute('aria-expanded', String(open));
+    if (!open) sessionStorage.setItem(key, '1');
+  });
+  guide.addEventListener('click', event => {
+    const button = event.target.closest('[data-guide-target]');
+    if (!button) return;
+    const target = localStage.querySelector(button.dataset.guideTarget);
+    if (!target) return;
+    target.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'nearest' });
+    target.classList.remove('sim-focus-flash');
+    requestAnimationFrame(() => target.classList.add('sim-focus-flash'));
+    setTimeout(() => target.classList.remove('sim-focus-flash'), 1300);
+  });
 }
 
 function renderCategories() {
@@ -87,6 +179,7 @@ async function selectDemo(id, options = {}) {
       return;
     }
     controller = nextController;
+    mountSimulationGuide(demo, localStage);
     stage.focus({ preventScroll: true });
     updateTelemetry();
     telemetryTimer = setInterval(updateTelemetry, 750);
