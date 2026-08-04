@@ -1,273 +1,100 @@
-const TOOL_CONFIG = {
-  "architecture-builder": { title: "Cloud Architecture Builder", accent: "#71e5ff", description: "Place services, connect a request path, and inspect cost, reliability, and latency tradeoffs." },
-  "workflow-designer": { title: "Agent Workflow Designer", accent: "#b68cff", description: "Build an agent process from triggers, tools, approvals, branches, and completion rules." },
-  "seo-auditor": { title: "SEO / AEO Auditor", accent: "#88f5a7", description: "Analyze page content for structure, answerability, metadata, entities, and conversion clarity." },
-  "accessibility-lab": { title: "Accessibility Lab", accent: "#ffd36e", description: "Toggle common interface failures and see how keyboard, contrast, labels, motion, and hierarchy change." },
-  "api-failure-lab": { title: "API Failure Laboratory", accent: "#ff7fa8", description: "Configure latency, rate limits, timeouts, retries, and fallback behavior, then run the request." },
-  "shader-lab": { title: "Shader & Material Lab", accent: "#ff9a62", description: "Manipulate animated procedural material controls and inspect the generated visual response." },
-  "procedural-world": { title: "Procedural World Generator", accent: "#62d7ff", description: "Generate repeatable terrain, settlements, roads, water, and resources from a deterministic seed." },
+const $=(r,s)=>r.querySelector(s);const $$=(r,s)=>[...r.querySelectorAll(s)];
+const wait=(ms)=>new Promise((resolve)=>setTimeout(resolve,ms));
+function baseController(stage,cleanup,reset){return{dispose(){cleanup?.();stage.replaceChildren();},getStats(){return{fps:"60",meshes:stage.querySelectorAll("*").length};},setGuidedOrbit(){},resetCamera(){reset?.();}};}
+
+const SERVICES={
+  cdn:{name:"CloudFront",icon:"◎",cost:4,latency:-45,reliability:2,color:"#75e5ff"},
+  api:{name:"API Gateway",icon:"⇄",cost:6,latency:18,reliability:1,color:"#9b8cff"},
+  function:{name:"Lambda",icon:"λ",cost:5,latency:35,reliability:1,color:"#ffae67"},
+  database:{name:"DynamoDB",icon:"▤",cost:12,latency:22,reliability:4,color:"#6bf2aa"},
+  queue:{name:"SQS Queue",icon:"≡",cost:4,latency:60,reliability:6,color:"#ffd36e"},
+  cache:{name:"Redis Cache",icon:"⚡",cost:7,latency:-58,reliability:2,color:"#ff7fa8"},
+  monitor:{name:"Observability",icon:"◉",cost:3,latency:0,reliability:5,color:"#8ab8ff"},
 };
 
-const ARCH_SERVICES = [
-  { id: "cdn", name: "CDN", icon: "◎", cost: 3, latency: -42, reliability: 2 },
-  { id: "api", name: "API Gateway", icon: "⇄", cost: 5, latency: 18, reliability: 1 },
-  { id: "function", name: "Functions", icon: "λ", cost: 4, latency: 36, reliability: 1 },
-  { id: "database", name: "Database", icon: "▤", cost: 12, latency: 22, reliability: 3 },
-  { id: "queue", name: "Queue", icon: "≡", cost: 4, latency: 65, reliability: 5 },
-  { id: "cache", name: "Cache", icon: "⚡", cost: 6, latency: -58, reliability: 2 },
-  { id: "monitor", name: "Monitoring", icon: "◉", cost: 2, latency: 0, reliability: 4 },
-];
-
-const WORKFLOW_NODES = [
-  { type: "trigger", name: "New request", icon: "▶" },
-  { type: "agent", name: "Research agent", icon: "R" },
-  { type: "agent", name: "Builder agent", icon: "B" },
-  { type: "tool", name: "Search sources", icon: "⌕" },
-  { type: "tool", name: "Run tests", icon: "✓" },
-  { type: "approval", name: "Human approval", icon: "!" },
-  { type: "branch", name: "Confidence branch", icon: "◇" },
-  { type: "output", name: "Verified result", icon: "■" },
-];
-
-function toolShell(config, inner) {
-  return `<section class="demo-surface tool-surface" style="--demo-accent:${config.accent}">
-    <header class="surface-header tool-header"><div><p class="surface-kicker">INTERACTIVE FRONTEND TOOL</p><h2>${config.title}</h2><p>${config.description}</p></div><span class="local-badge">RUNS LOCALLY</span></header>
-    ${inner}
+function createArchitecture({stage,onSelect,onReady}){
+  let nodes=[];let links=[];let selected=null;let nodeId=0;let running=false;
+  stage.innerHTML=`<section class="demo-surface tool-architecture">
+    <header class="arch-top"><div><span>VISUAL CLOUD DESIGNER</span><h2>Cloud Architecture Builder</h2></div><div class="arch-actions"><button data-arch-action="simulate">▶ Simulate request</button><button data-arch-action="clear">Clear canvas</button><button data-export>Export JSON</button></div></header>
+    <div class="arch-shell">
+      <aside class="arch-palette"><h3>SERVICES</h3>${Object.entries(SERVICES).map(([id,s])=>`<button data-add-service="${id}" style="--service:${s.color}"><i>${s.icon}</i><span><strong>${s.name}</strong><small>$${s.cost}/mo base</small></span></button>`).join("")}</aside>
+      <main class="arch-board" data-board><svg data-links></svg><div class="arch-grid"></div><div class="arch-empty" data-empty-state><strong>Build a cloud request path</strong><span>Add services, drag them into place, then connect them from the inspector.</span></div><i class="arch-packet" data-request-packet></i></main>
+      <aside class="arch-inspector"><h3>INSPECTOR</h3><div data-node-inspector><p>Select a node to configure it.</p></div><div class="arch-estimate"><article><span>BASE COST</span><strong data-arch-cost>$0/mo</strong></article><article><span>LATENCY</span><strong data-arch-latency>140ms</strong></article><article><span>RELIABILITY</span><strong data-arch-reliability>88%</strong></article><article><span>REQUEST</span><strong data-arch-status>NOT RUN</strong></article></div><p data-arch-advice>Add a CDN, monitoring, queue, or cache to improve the design.</p></aside>
+    </div>
+    <div data-deployed hidden></div>
   </section>`;
+  const board=$(stage,"[data-board]");const svg=$(stage,"[data-links]");const packet=$(stage,"[data-request-packet]");
+  function metrics(){const cost=nodes.reduce((a,n)=>a+n.service.cost,0);const latency=Math.max(20,140+nodes.reduce((a,n)=>a+n.service.latency,0));const rel=Math.min(99.99,88+nodes.reduce((a,n)=>a+n.service.reliability,0));$(stage,"[data-arch-cost]").textContent=`$${cost}/mo`;$(stage,"[data-arch-latency]").textContent=`${latency}ms`;$(stage,"[data-arch-reliability]").textContent=`${rel.toFixed(2)}%`;$(stage,"[data-arch-advice]").textContent=!nodes.some(n=>n.type==="monitor")?"Add observability before calling this production-ready.":!nodes.some(n=>n.type==="queue")?"A queue would isolate downstream failures.":"Architecture includes observability and failure isolation.";}
+  function drawLinks(){svg.innerHTML=links.map(([a,b])=>{const n1=nodes.find(n=>n.id===a),n2=nodes.find(n=>n.id===b);if(!n1||!n2)return"";return`<path d="M${n1.x+70} ${n1.y+42} C${n1.x+140} ${n1.y+42},${n2.x-70} ${n2.y+42},${n2.x} ${n2.y+42}"/>`;}).join("");}
+  function renderInspector(){const box=$(stage,"[data-node-inspector]");if(!selected){box.innerHTML="<p>Select a node to configure it.</p>";return;}const node=nodes.find(n=>n.id===selected);box.innerHTML=`<div class="selected-service" style="--service:${node.service.color}"><i>${node.service.icon}</i><span><strong>${node.service.name}</strong><small>${node.type}</small></span></div><label>Instance label<input data-node-label value="${node.label}"></label><label>Connect to<select data-connect><option value="">Choose a node</option>${nodes.filter(n=>n.id!==node.id).map(n=>`<option value="${n.id}">${n.label}</option>`).join("")}</select></label><button data-connect-button>Connect nodes</button><button class="danger" data-delete-node>Delete node</button>`;$(box,"[data-node-label]").addEventListener("input",e=>{node.label=e.target.value;node.el.querySelector("strong").textContent=node.label;});$(box,"[data-connect-button]").addEventListener("click",()=>{const target=Number($(box,"[data-connect]").value);if(target&&!links.some(([a,b])=>a===node.id&&b===target)){links.push([node.id,target]);drawLinks();}});$(box,"[data-delete-node]").addEventListener("click",()=>{node.el.remove();nodes=nodes.filter(n=>n.id!==node.id);links=links.filter(([a,b])=>a!==node.id&&b!==node.id);selected=null;drawLinks();metrics();renderInspector();syncTestNodes();});}
+  function syncTestNodes(){const hidden=$(stage,"[data-deployed]");hidden.replaceChildren(...nodes.map(n=>{const b=document.createElement("button");b.textContent=n.label;return b;}));$(stage,"[data-empty-state]").hidden=nodes.length>0;}
+  function add(type){const service=SERVICES[type];const id=++nodeId;const el=document.createElement("button");el.className="arch-node";el.style.setProperty("--service",service.color);const x=150+(nodes.length%3)*210,y=100+Math.floor(nodes.length/3)*150;el.style.transform=`translate(${x}px,${y}px)`;el.innerHTML=`<i>${service.icon}</i><span><strong>${service.name}</strong><small>${type}</small></span><em>⋮⋮</em>`;board.append(el);const node={id,type,service,label:service.name,x,y,el};nodes.push(node);let dragging=false,ox=0,oy=0;el.addEventListener("pointerdown",e=>{selected=id;renderInspector();$$(stage,".arch-node").forEach(n=>n.classList.toggle("selected",n===el));if(e.target.closest("em")){dragging=true;ox=e.clientX-node.x;oy=e.clientY-node.y;el.setPointerCapture(e.pointerId);}});el.addEventListener("pointermove",e=>{if(!dragging)return;const rect=board.getBoundingClientRect();node.x=Math.max(0,Math.min(rect.width-150,e.clientX-rect.left-ox));node.y=Math.max(0,Math.min(rect.height-90,e.clientY-rect.top-oy));el.style.transform=`translate(${node.x}px,${node.y}px)`;drawLinks();});el.addEventListener("pointerup",()=>dragging=false);metrics();syncTestNodes();onSelect?.({index:"ARCHITECTURE NODE",title:service.name,kicker:"DRAGGABLE / CONFIGURABLE",copy:"This node has cost, latency, and reliability effects and can be connected into an actual request path.",tags:["Drag","Connect","Inspect"]});}
+  $$(stage,"[data-add-service]").forEach(b=>b.addEventListener("click",()=>add(b.dataset.addService)));
+  $(stage,'[data-arch-action="clear"]').addEventListener("click",()=>{nodes.forEach(n=>n.el.remove());nodes=[];links=[];selected=null;drawLinks();metrics();renderInspector();syncTestNodes();});
+  $(stage,'[data-arch-action="simulate"]').addEventListener("click",async()=>{if(running||!nodes.length)return;running=true;$(stage,"[data-arch-status]").textContent="RUNNING";const ordered=nodes.length;for(let i=0;i<ordered;i++){const n=nodes[i];packet.style.left=`${n.x+65}px`;packet.style.top=`${n.y+38}px`;n.el.classList.add("request-active");await wait(420);n.el.classList.remove("request-active");}$(stage,"[data-arch-status]").textContent=nodes.some(n=>n.type==="monitor")?"200 OK / OBSERVED":"200 OK / BLIND";running=false;});
+  $(stage,"[data-export]").addEventListener("click",()=>{const data=JSON.stringify({nodes:nodes.map(({id,type,label,x,y})=>({id,type,label,x,y})),links},null,2);navigator.clipboard?.writeText(data);$(stage,"[data-export]").textContent="Copied JSON";setTimeout(()=>$(stage,"[data-export]").textContent="Export JSON",1200);});
+  onReady?.({engineType:"GRAPH CANVAS"});return baseController(stage,undefined,()=>$(stage,'[data-arch-action="clear"]').click());
 }
 
-function architectureTemplate(config) {
-  return toolShell(config, `<div class="tool-workspace architecture-workspace">
-    <aside class="tool-palette"><header><span>SERVICE PALETTE</span><small>Click to add</small></header>${ARCH_SERVICES.map((service) => `<button data-add-service="${service.id}"><i>${service.icon}</i><span><strong>${service.name}</strong><small>+$${service.cost}/mo</small></span><b>+</b></button>`).join("")}</aside>
-    <main class="architecture-canvas"><div class="canvas-toolbar"><button data-arch-action="simulate">▶ Simulate request</button><button data-arch-action="clear">Clear</button><span>Click deployed nodes to remove them</span></div><div class="request-lane"><span class="request-origin">USER</span><div class="deployed-services" data-deployed></div><span class="request-destination">RESPONSE</span><i class="request-packet" data-request-packet></i></div><div class="empty-canvas" data-empty-state><strong>Start with a CDN or API Gateway</strong><span>Build a request path from left to right.</span></div></main>
-    <aside class="architecture-score"><header>ARCHITECTURE ESTIMATE</header><article><span>MONTHLY BASE</span><strong data-arch-cost>$0</strong></article><article><span>LATENCY</span><strong data-arch-latency>140 ms</strong></article><article><span>RELIABILITY</span><strong data-arch-reliability>88%</strong></article><article><span>REQUEST STATUS</span><strong data-arch-status>NOT RUN</strong></article><p data-arch-advice>Add monitoring and a queue to improve recoverability. Add a cache to lower read latency.</p></aside>
-  </div>`);
+const WORKFLOW_NODES=[{type:"trigger",name:"New request",icon:"▶"},{type:"agent",name:"Research agent",icon:"R"},{type:"agent",name:"Builder agent",icon:"B"},{type:"tool",name:"Search sources",icon:"⌕"},{type:"tool",name:"Run tests",icon:"✓"},{type:"approval",name:"Human approval",icon:"!"},{type:"branch",name:"Confidence branch",icon:"◇"},{type:"output",name:"Verified result",icon:"■"}];
+function createWorkflow({stage,onSelect,onReady}){
+  let nodes=[];let id=0;let running=false;
+  stage.innerHTML=`<section class="demo-surface tool-workflow"><header class="workflow-top"><div><span>AGENT PROCESS STUDIO</span><h2>Workflow Designer</h2></div><div><button data-workflow-action="run">Run workflow</button><button data-workflow-action="clear">Clear</button></div></header><div class="workflow-shell"><aside class="workflow-library"><h3>NODE LIBRARY</h3>${WORKFLOW_NODES.map((n,i)=>`<button data-add-workflow="${i}"><i class="${n.type}">${n.icon}</i><span><strong>${n.name}</strong><small>${n.type}</small></span></button>`).join("")}</aside><main class="workflow-board"><div class="workflow-lane" data-workflow-lane></div><div class="workflow-empty" data-workflow-empty>Build a process with at least a trigger, an agent, and an output.</div></main><aside class="workflow-debug"><h3>EXECUTION TRACE</h3><div class="workflow-stats"><span>NODES <strong data-workflow-count>0</strong></span><span>CONTEXT <strong data-workflow-context>0 tokens</strong></span><span>GATES <strong data-workflow-approvals>0</strong></span></div><ol data-workflow-log><li>Ready.</li></ol><strong data-workflow-status>READY</strong></aside></div></section>`;
+  function update(){const lane=$(stage,"[data-workflow-lane]");lane.innerHTML=nodes.map((n,i)=>`<div class="workflow-node ${n.type}" data-node-id="${n.id}" draggable="true"><i>${n.icon}</i><span><strong>${n.name}</strong><small>${n.type}</small></span><button aria-label="Remove">×</button>${i<nodes.length-1?'<em>→</em>':''}</div>`).join("");$(stage,"[data-workflow-count]").textContent=nodes.length;$(stage,"[data-workflow-context]").textContent=`${nodes.filter(n=>n.type==="agent"||n.type==="tool").length*640} tokens`;$(stage,"[data-workflow-approvals]").textContent=nodes.filter(n=>n.type==="approval").length;$(stage,"[data-workflow-empty]").hidden=nodes.length>0;$$(stage,"[data-node-id]").forEach(el=>{el.querySelector("button").addEventListener("click",()=>{nodes=nodes.filter(n=>n.id!==Number(el.dataset.nodeId));update();});el.addEventListener("click",e=>{if(e.target.tagName==="BUTTON")return;const n=nodes.find(n=>n.id===Number(el.dataset.nodeId));onSelect?.({index:"WORKFLOW NODE",title:n.name,kicker:n.type.toUpperCase(),copy:"Each node exposes waiting, running, passed, failed, or approval-required state during execution.",tags:["Execution trace","Reorderable","Inspectable"]});});el.addEventListener("dragstart",e=>e.dataTransfer.setData("text/plain",el.dataset.nodeId));el.addEventListener("dragover",e=>e.preventDefault());el.addEventListener("drop",e=>{e.preventDefault();const from=nodes.findIndex(n=>n.id===Number(e.dataTransfer.getData("text/plain"))),to=nodes.findIndex(n=>n.id===Number(el.dataset.nodeId));const [m]=nodes.splice(from,1);nodes.splice(to,0,m);update();});});}
+  $$(stage,"[data-add-workflow]").forEach(b=>b.addEventListener("click",()=>{const def=WORKFLOW_NODES[Number(b.dataset.addWorkflow)];nodes.push({...def,id:++id});update();}));
+  $(stage,'[data-workflow-action="clear"]').addEventListener("click",()=>{nodes=[];update();$(stage,"[data-workflow-log]").innerHTML="<li>Workflow cleared.</li>";});
+  $(stage,'[data-workflow-action="run"]').addEventListener("click",async()=>{if(running||!nodes.length)return;running=true;const log=$(stage,"[data-workflow-log]");log.replaceChildren();for(const node of nodes){const el=$(stage,`[data-node-id="${node.id}"]`);el.classList.add("running");$(stage,"[data-workflow-status]").textContent=`RUNNING ${node.name.toUpperCase()}`;const li=document.createElement("li");li.textContent=`Started ${node.name}`;log.prepend(li);await wait(node.type==="approval"?800:420);el.classList.remove("running");el.classList.add("passed");if(node.type==="branch"&&nodes.filter(n=>n.type==="agent").length<2){el.classList.add("warning");log.prepend(Object.assign(document.createElement("li"),{textContent:"Branch had only one agent path."}));}}$(stage,"[data-workflow-status]").textContent="COMPLETE";running=false;});
+  update();onReady?.({engineType:"WORKFLOW EXECUTOR"});return baseController(stage,undefined,()=>$(stage,'[data-workflow-action="clear"]').click());
 }
 
-function workflowTemplate(config) {
-  return toolShell(config, `<div class="tool-workspace workflow-workspace">
-    <aside class="tool-palette"><header><span>WORKFLOW NODES</span><small>Click to append</small></header>${WORKFLOW_NODES.map((node, index) => `<button data-add-workflow="${index}"><i class="${node.type}">${node.icon}</i><span><strong>${node.name}</strong><small>${node.type}</small></span><b>+</b></button>`).join("")}</aside>
-    <main class="workflow-canvas"><div class="canvas-toolbar"><button data-workflow-action="run">▶ Run workflow</button><button data-workflow-action="clear">Clear</button><span data-workflow-status>Ready</span></div><ol data-workflow-lane></ol><div class="empty-canvas" data-workflow-empty><strong>Design an observable workflow</strong><span>Every node will expose waiting, running, complete, or failed state.</span></div></main>
-    <aside class="workflow-inspector"><header>RUN INSPECTOR</header><article><span>NODES</span><strong data-workflow-count>0</strong></article><article><span>EST. CONTEXT</span><strong data-workflow-context>0 tokens</strong></article><article><span>APPROVAL GATES</span><strong data-workflow-approvals>0</strong></article><div class="mini-log" data-workflow-log><p>No run events yet.</p></div></aside>
-  </div>`);
+function analyzeSeo(text){const has=(re)=>re.test(text);const checks=[
+  ["Title tag",has(/<title>[^<]{20,65}<\/title>/i),18,"Use one descriptive 20–65 character title."],
+  ["Meta description",has(/meta[^>]+name=["']description["'][^>]+content=["'][^"']{70,170}/i),16,"Add a concise benefit-led description."],
+  ["Single H1",(text.match(/<h1\b/gi)||[]).length===1,14,"Use one primary H1."],
+  ["Question answerability",has(/\b(what|how|why|who|when|where)\b/i)&&has(/<p>/i),14,"Answer a concrete user question directly."],
+  ["Entity clarity",has(/Brad Matera|AWS|ProjectHub|Matera Digital/i),12,"Name people, products, organizations, and places consistently."],
+  ["Internal action",has(/<a\b[^>]+href=["']\//i),10,"Provide a meaningful internal next action."],
+  ["Structured data",has(/application\/ld\+json|schema\.org/i),10,"Add relevant JSON-LD."],
+  ["Heading structure",has(/<h2\b/i),6,"Use descriptive H2 sections."],
+];return{checks,score:checks.reduce((s,c)=>s+(c[1]?c[2]:0),0)};}
+function createSeo({stage,onReady}){
+  const sample=`<title>Cloud Support and Full-Stack Engineering | Brad Matera</title>\n<meta name="description" content="Explore verified cloud, agent, and web engineering projects built by Brad Matera, including AWS support work and ProjectHub.">\n<h1>Systems that prove they work</h1>\n<h2>What does Brad build?</h2>\n<p>Brad builds observable cloud systems, grounded AI tools, and accessible web experiences.</p>\n<a href="/projects">View verified projects</a>`;
+  stage.innerHTML=`<section class="demo-surface tool-seo"><header class="seo-top"><div><span>SEARCH + ANSWER READINESS</span><h2>SEO / AEO Audit Report</h2></div><button data-seo-run>Run full audit</button></header><div class="seo-shell"><section class="seo-editor"><header><span>PAGE SOURCE</span><button data-seo-sample>Load imperfect sample</button></header><textarea data-seo-input spellcheck="false"></textarea><div class="seo-preview"><span>SEARCH PREVIEW</span><a data-preview-title>Untitled page</a><small>bradleymatera.dev › page</small><p data-preview-description>No meta description found.</p></div></section><main class="seo-report"><div class="seo-score"><svg viewBox="0 0 120 120"><circle cx="60" cy="60" r="50"/><circle data-seo-ring cx="60" cy="60" r="50"/></svg><strong data-seo-score>--</strong><span>READINESS</span></div><nav><button class="active" data-seo-tab="all">All checks</button><button data-seo-tab="failed">Failed only</button><button data-seo-tab="passed">Passed</button></nav><div class="seo-checks" data-seo-checks><p>Run the audit to generate a prioritized report.</p></div></main><aside class="seo-answer"><h3>ANSWER ENGINE PREVIEW</h3><div data-answer-preview><p>Your strongest direct answer will appear here.</p></div><h3>PRIORITY PLAN</h3><ol data-priority><li>Awaiting analysis.</li></ol></aside></div></section>`;
+  const input=$(stage,"[data-seo-input]");input.value=sample.replace(/<meta[^>]+>|<a[^>]+>[^<]+<\/a>/gi,"");
+  function run(){const text=input.value;const {checks,score}=analyzeSeo(text);$(stage,"[data-seo-score]").textContent=score;$(stage,"[data-seo-ring]").style.strokeDashoffset=314-(314*score/100);const title=text.match(/<title>([^<]+)/i)?.[1]||"Untitled page";const desc=text.match(/name=["']description["'][^>]+content=["']([^"']+)/i)?.[1]||"No meta description found.";$(stage,"[data-preview-title]").textContent=title;$(stage,"[data-preview-description]").textContent=desc;$(stage,"[data-answer-preview]").innerHTML=`<p>${text.match(/<p>([^<]+)/i)?.[1]||"No direct answer paragraph detected."}</p><small>${checks.filter(c=>c[1]).length} supporting signals detected.</small>`;$(stage,"[data-seo-checks]").innerHTML=checks.map(([name,pass,weight,fix])=>`<article class="${pass?"pass":"fail"}" data-result="${pass?"passed":"failed"}"><i>${pass?"✓":"!"}</i><span><strong>${name}</strong><p>${pass?`Passed • ${weight} points`:fix}</p></span><em>${pass?`+${weight}`:"0"}</em></article>`).join("");$(stage,"[data-priority]").innerHTML=checks.filter(c=>!c[1]).slice(0,4).map(c=>`<li><strong>${c[0]}</strong><span>${c[3]}</span></li>`).join("")||"<li>All core checks passed. Validate performance and real search data next.</li>";}
+  $(stage,"[data-seo-run]").addEventListener("click",run);$(stage,"[data-seo-sample]").addEventListener("click",()=>{input.value=sample;run();});$$(stage,"[data-seo-tab]").forEach(b=>b.addEventListener("click",()=>{$$(stage,"[data-seo-tab]").forEach(x=>x.classList.toggle("active",x===b));$$(stage,"[data-result]").forEach(r=>r.hidden=b.dataset.seoTab!=="all"&&r.dataset.result!==b.dataset.seoTab);}));
+  onReady?.({engineType:"CONTENT ANALYZER"});return baseController(stage,undefined,()=>{input.value="";$(stage,"[data-seo-checks]").innerHTML="<p>Run the audit to generate a prioritized report.</p>";});
 }
 
-function seoTemplate(config) {
-  const sample = `<title>Cloud Support and Full-Stack Engineering | Brad Matera</title>\n<meta name="description" content="Explore verified cloud, agent, and web engineering work by Brad Matera.">\n<h1>Systems that prove they work</h1>\n<h2>Cloud support engineering</h2>\n<p>I build observable software, grounded AI tools, and accessible web experiences.</p>\n<a href="/projects">View verified projects</a>`;
-  return toolShell(config, `<div class="audit-layout">
-    <section class="audit-input"><header><div><span>PAGE SOURCE / CONTENT</span><small>Paste HTML or copy</small></div><button data-seo-sample>Load sample</button></header><textarea data-seo-input spellcheck="false">${sample.replace(/</g, "&lt;")}</textarea><button class="audit-run" data-seo-run>RUN FULL AUDIT</button></section>
-    <section class="audit-results"><header><div><span>READINESS SCORE</span><strong data-seo-score>--</strong></div><i><b data-seo-ring></b></i></header><div class="audit-checks" data-seo-checks><p>Run the audit to inspect structure, metadata, answerability, entities, links, and calls to action.</p></div></section>
-    <aside class="audit-preview"><header>SEARCH / ANSWER PREVIEW</header><article><a data-preview-title>Cloud Support and Full-Stack Engineering | Brad Matera</a><span>bradleymatera.dev › systems</span><p data-preview-description>Explore verified cloud, agent, and web engineering work by Brad Matera.</p></article><div class="answer-card"><span>DIRECT ANSWER CANDIDATE</span><p data-answer-preview>Your strongest concise answer will appear here after analysis.</p></div></aside>
-  </div>`);
+function createAccessibility({stage,onReady}){
+  const issues={contrast:"Low contrast",labels:"Missing labels",focus:"Hidden focus",headings:"Broken heading order",motion:"Forced motion",target:"Small targets"};
+  stage.innerHTML=`<section class="demo-surface tool-a11y"><header class="a11y-top"><div><span>LIVE WCAG INSPECTION</span><h2>Accessibility Testing Lab</h2></div><div class="a11y-score"><strong data-a11y-score>100</strong><span>/ 100</span></div></header><div class="a11y-shell"><aside class="a11y-inspector"><h3>INJECT FAILURES</h3>${Object.entries(issues).map(([id,label])=>`<label><span>${label}</span><input type="checkbox" data-a11y-toggle="${id}"><i></i></label>`).join("")}<button data-a11y-keyboard>Start keyboard test</button><div class="tab-order" data-tab-order><span>1 NAV</span><span>2 NAME</span><span>3 EMAIL</span><span>4 SUBMIT</span></div></aside><main class="a11y-device"><div class="browser-chrome"><i></i><i></i><i></i><span>northstar.example</span></div><div class="preview-site" data-a11y-preview><nav><strong>NORTHSTAR</strong><div><a href="#services">Services</a><a href="#work">Work</a><a href="#contact">Contact</a></div></nav><section><p>ACCESSIBLE BY DEFAULT</p><h2 data-heading>Technology should work for everyone.</h2><span>Introduce failures and inspect their practical effect.</span><form><label data-form-label>Name<input aria-label="Name" placeholder="Your name"></label><label data-form-label>Email<input aria-label="Email" type="email" placeholder="you@example.com"></label><button type="button">Request information</button></form></section><div class="motion-orbit"><i></i><i></i><strong>A11Y</strong></div></div></main><aside class="a11y-results"><h3>ISSUES</h3><ol data-a11y-list><li class="pass">No deliberate failures enabled.</li></ol><h3>INSPECTOR</h3><div class="a11y-tree"><span>banner</span><span>navigation</span><span>main</span><span>form</span></div><p data-screen-reader>Screen reader preview: “Technology should work for everyone, heading level 2.”</p></aside></div></section>`;
+  function update(){const preview=$(stage,"[data-a11y-preview]");const enabled=[];for(const id of Object.keys(issues)){const on=$(stage,`[data-a11y-toggle="${id}"]`).checked;preview.classList.toggle(`issue-${id}`,on);if(on)enabled.push(id);}const score=Math.max(0,100-enabled.length*14);$(stage,"[data-a11y-score]").textContent=score;$(stage,"[data-a11y-list]").innerHTML=enabled.length?enabled.map(id=>`<li class="fail"><strong>${issues[id]}</strong><span>${{contrast:"Text contrast falls below WCAG AA.",labels:"Form controls lose accessible names.",focus:"Keyboard users cannot track focus.",headings:"Document outline becomes misleading.",motion:"Animation ignores reduced-motion preference.",target:"Targets fall below recommended size."}[id]}</span></li>`).join(""):"<li class='pass'>No deliberate failures enabled.</li>";$(stage,"[data-screen-reader]").textContent=enabled.includes("headings")?"Screen reader preview: heading hierarchy jumps from level 1 to level 4.":enabled.includes("labels")?"Screen reader preview: edit text, blank, edit text, blank.":"Screen reader preview: “Technology should work for everyone, heading level 2.”";}
+  $$(stage,"[data-a11y-toggle]").forEach(i=>i.addEventListener("change",update));$(stage,"[data-a11y-keyboard]").addEventListener("click",async()=>{const focusables=$$(stage,".preview-site a,.preview-site input,.preview-site button");for(const [i,node] of focusables.entries()){node.focus();$$(stage,"[data-tab-order] span").forEach((s,j)=>s.classList.toggle("active",i===j));await wait(450);}});
+  onReady?.({engineType:"A11Y INSPECTOR"});return baseController(stage,undefined,()=>{$$(stage,"[data-a11y-toggle]").forEach(i=>i.checked=false);update();});
 }
 
-function accessibilityTemplate(config) {
-  return toolShell(config, `<div class="a11y-layout">
-    <aside class="a11y-controls"><header>ISSUE CONTROLS</header>${[
-      ["contrast", "Low contrast"], ["labels", "Remove labels"], ["focus", "Hide focus"], ["headings", "Break headings"], ["motion", "Forced motion"], ["target", "Tiny targets"]
-    ].map(([id, label]) => `<label><span>${label}</span><input type="checkbox" data-a11y-toggle="${id}"><i></i></label>`).join("")}<button data-a11y-keyboard>START KEYBOARD TEST</button></aside>
-    <main class="a11y-preview" data-a11y-preview><div class="preview-site"><nav><strong>NORTHSTAR</strong><div><a href="#">Services</a><a href="#">Work</a><a href="#">Contact</a></div></nav><section><p>ACCESSIBLE BY DEFAULT</p><h2 data-heading>Technology should work for everyone.</h2><span>Test this interface while deliberately introducing common accessibility failures.</span><form><label data-form-label>Name<input aria-label="Name" placeholder="Your name"></label><label data-form-label>Email<input aria-label="Email" type="email" placeholder="you@example.com"></label><button type="button">Request information</button></form></section><div class="motion-orbit"><i></i><i></i><strong>A11Y</strong></div></div></main>
-    <aside class="a11y-report"><header>LIVE REPORT</header><strong data-a11y-score>100</strong><span>ACCESSIBILITY SCORE</span><ol data-a11y-list><li class="pass">No deliberate failures enabled.</li></ol><p>Use Tab after starting the keyboard test. This is an educational simulation, not a replacement for automated and manual auditing.</p></aside>
-  </div>`);
+function createApi({stage,onReady}){
+  stage.innerHTML=`<section class="demo-surface tool-api"><header class="api-top"><div><span>RESILIENCE WORKBENCH</span><h2>API Failure Laboratory</h2></div><button data-api-run>Run request</button></header><div class="api-shell"><aside class="api-config"><h3>SCENARIO</h3><label>Failure mode<select data-api-mode><option value="none">Healthy 200</option><option value="429">429 rate limit</option><option value="timeout">Timeout</option><option value="500">500 server error</option><option value="malformed">Malformed JSON</option></select></label><label>Base latency <output data-latency-output>400 ms</output><input type="range" min="50" max="3000" step="50" value="400" data-api-latency></label><label>Retry policy<select data-api-retries><option value="0">No retries</option><option value="1">1 retry</option><option value="3" selected>3 retries + backoff</option></select></label><label class="switch"><span>Fallback provider</span><input type="checkbox" checked data-api-fallback><i></i></label><button data-api-clear>Clear trace</button></aside><main class="api-timeline"><div class="api-code"><div><span>REQUEST</span><pre>POST /v1/answer\nAuthorization: Bearer ***\nContent-Type: application/json</pre></div><div data-api-response><span>RESPONSE</span><pre>{ "status": "not started" }</pre></div></div><div class="timeline-lane"><div class="api-node client">CLIENT</div><div class="api-hop"><i></i></div><div class="api-node primary">PRIMARY</div><div class="api-hop"><i></i></div><div class="api-node fallback">FALLBACK</div><div class="api-hop"><i></i></div><div class="api-node result">RESULT</div><b data-api-packet></b></div><div class="attempts" data-attempts></div></main><aside class="api-trace"><h3>REQUEST TRACE</h3><ol data-api-log><li><time>--</time><span>Configure a scenario and run it.</span></li></ol></aside></div></section>`;
+  const latency=$(stage,"[data-api-latency]");latency.addEventListener("input",()=>$(stage,"[data-latency-output]").textContent=`${latency.value} ms`);function trace(msg,tone=""){$(stage,"[data-api-log]").insertAdjacentHTML("afterbegin",`<li class="${tone}"><time>${performance.now().toFixed(0)}ms</time><span>${msg}</span></li>`);}
+  async function run(){const mode=$(stage,"[data-api-mode]").value;const retries=Number($(stage,"[data-api-retries]").value);const fallback=$(stage,"[data-api-fallback]").checked;const attempts=$(stage,"[data-attempts]");attempts.replaceChildren();$(stage,"[data-api-log]").replaceChildren();$(stage,"[data-api-packet]").classList.add("running");let success=false;for(let i=0;i<=retries;i++){attempts.insertAdjacentHTML("beforeend",`<article class="running"><span>ATTEMPT ${i+1}</span><strong>Primary provider</strong><small>waiting ${i?2**i*250:0}ms backoff</small></article>`);trace(`Attempt ${i+1} dispatched to primary.`);await wait(Math.min(800,Number(latency.value)/3));const card=attempts.lastElementChild;if(mode==="none"||(mode==="429"&&i===retries&&fallback)){card.className="pass";card.querySelector("small").textContent="200 OK";success=true;break;}card.className="fail";card.querySelector("small").textContent=mode==="timeout"?"timeout":mode==="malformed"?"parse error":`HTTP ${mode}`;trace(`Primary failed: ${card.querySelector("small").textContent}`,"fail");}
+    if(!success&&fallback){attempts.insertAdjacentHTML("beforeend",`<article class="fallback pass"><span>FALLBACK</span><strong>Secondary provider</strong><small>200 OK</small></article>`);trace("Circuit moved request to fallback provider.","warn");await wait(450);success=true;}$(stage,"[data-api-packet]").classList.remove("running");$(stage,"[data-api-response]").innerHTML=`<span>RESPONSE</span><pre>${success?'{\n  "ok": true,\n  "provider": "'+(mode==="none"?'primary':'fallback')+'",\n  "evidence": 4\n}':'{\n  "ok": false,\n  "error": "request_exhausted"\n}'}</pre>`;trace(success?"Request completed successfully.":"Retry budget exhausted.",success?"pass":"fail");}
+  $(stage,"[data-api-run]").addEventListener("click",run);$(stage,"[data-api-clear]").addEventListener("click",()=>{$(stage,"[data-api-log]").innerHTML="<li><time>--</time><span>Trace cleared.</span></li>";$(stage,"[data-attempts]").replaceChildren();});onReady?.({engineType:"REQUEST TRACE ENGINE"});return baseController(stage,undefined,()=>$(stage,"[data-api-clear]").click());
 }
 
-function apiTemplate(config) {
-  return toolShell(config, `<div class="api-layout">
-    <section class="api-controls"><header>FAILURE CONFIGURATION</header><label>Base latency <output data-latency-output>400 ms</output><input type="range" min="50" max="3000" step="50" value="400" data-api-latency></label><label>Failure mode<select data-api-mode><option value="none">Healthy response</option><option value="429">429 rate limit</option><option value="timeout">Timeout</option><option value="500">500 server error</option><option value="malformed">Malformed JSON</option></select></label><label>Retry policy<select data-api-retries><option value="0">No retries</option><option value="1">1 retry</option><option value="3" selected>3 retries with backoff</option></select></label><label class="switch-label"><span>Fallback provider</span><input type="checkbox" checked data-api-fallback><i></i></label><button data-api-run>RUN REQUEST</button></section>
-    <main class="api-visual"><div class="api-node client"><span>01</span><strong>CLIENT</strong><small>POST /answer</small></div><div class="api-wire"><i data-api-packet></i></div><div class="api-node primary"><span>02</span><strong>PRIMARY API</strong><small data-primary-state>READY</small></div><div class="api-wire"><i></i></div><div class="api-node fallback"><span>03</span><strong>FALLBACK</strong><small data-fallback-state>STANDBY</small></div><div class="api-response" data-api-response><span>RESPONSE</span><strong>Not started</strong><pre>{}</pre></div></main>
-    <aside class="api-log"><header><span>REQUEST TRACE</span><button data-api-clear>Clear</button></header><ol data-api-log><li><time>--</time><span>Configure a failure and run the request.</span></li></ol></aside>
-  </div>`);
+function createShader({stage,onReady}){
+  stage.innerHTML=`<section class="demo-surface tool-shader"><header class="shader-top"><div><span>PROCEDURAL GPU-STYLE PLAYGROUND</span><h2>Shader & Material Lab</h2></div><div><button data-shader-preset="plasma">Plasma</button><button data-shader-preset="grid">Grid</button><button data-shader-preset="rings">Rings</button><button data-shader-randomize>Randomize</button></div></header><div class="shader-shell"><main class="shader-viewport"><canvas width="1200" height="780" data-shader-canvas></canvas><div class="shader-hud"><span data-shader-name>NEURAL PLASMA</span><strong data-shader-fps>60 FPS</strong></div></main><aside class="shader-editor"><h3>UNIFORMS</h3><label>Speed <output data-shader-speed-output>1.0</output><input type="range" min="0" max="3" step=".1" value="1" data-shader-speed></label><label>Scale <output data-shader-scale-output>3.0</output><input type="range" min="1" max="10" step=".1" value="3" data-shader-scale></label><label>Distortion <output data-shader-distort-output>.35</output><input type="range" min="0" max="1" step=".01" value=".35" data-shader-distort></label><label>Glow <output data-shader-glow-output>.70</output><input type="range" min="0" max="1" step=".01" value=".7" data-shader-glow></label><h3>FRAGMENT LOGIC</h3><textarea data-shader-code spellcheck="false">color = palette(sin(distance * scale - time * speed));\ncolor += glow / max(distance, 0.05);</textarea><button data-compile>Compile material</button><p data-compile-status>Material compiled.</p></aside></div></section>`;
+  const canvas=$(stage,"[data-shader-canvas]"),ctx=canvas.getContext("2d");let frame,pattern="plasma",time=0;const controls={speed:$(stage,"[data-shader-speed]"),scale:$(stage,"[data-shader-scale]"),distort:$(stage,"[data-shader-distort]"),glow:$(stage,"[data-shader-glow]")};function draw(){const w=canvas.width,h=canvas.height,img=ctx.createImageData(w,h),d=img.data;const speed=+controls.speed.value,scale=+controls.scale.value,dist=+controls.distort.value,glow=+controls.glow.value;time+=.018*speed;for(let y=0;y<h;y+=3){for(let x=0;x<w;x+=3){const nx=(x-w/2)/h,ny=(y-h/2)/h;let v;if(pattern==="grid")v=Math.sin((nx+Math.sin(ny*6+time)*dist)*scale*18)*Math.sin((ny+Math.cos(nx*6-time)*dist)*scale*18);else if(pattern==="rings")v=Math.sin(Math.hypot(nx,ny)*scale*34-time*5+Math.sin(Math.atan2(ny,nx)*6)*dist*4);else v=Math.sin(Math.hypot(nx+Math.sin(ny*8+time)*dist,ny+Math.cos(nx*7-time)*dist)*scale*26-time*4);const r=70+Math.sin(v+time)*80+glow*70,g=80+Math.sin(v+2.1)*85,b=150+Math.cos(v-time)*90;for(let yy=0;yy<3;yy++)for(let xx=0;xx<3;xx++){const i=((y+yy)*w+x+xx)*4;if(i<d.length){d[i]=r;d[i+1]=g;d[i+2]=b;d[i+3]=255;}}}}ctx.putImageData(img,0,0);frame=requestAnimationFrame(draw);}function sync(){for(const [name,input] of Object.entries(controls))$(stage,`[data-shader-${name}-output]`).textContent=Number(input.value).toFixed(name==="speed"||name==="scale"?1:2);}Object.values(controls).forEach(i=>i.addEventListener("input",sync));$$(stage,"[data-shader-preset]").forEach(b=>b.addEventListener("click",()=>{pattern=b.dataset.shaderPreset;$(stage,"[data-shader-name]").textContent=pattern.toUpperCase();}));$(stage,"[data-shader-randomize]").addEventListener("click",()=>{Object.values(controls).forEach((i,index)=>i.value=index<2?(Math.random()*2.5+1).toFixed(1):Math.random().toFixed(2));sync();});$(stage,"[data-compile]").addEventListener("click",()=>{const code=$(stage,"[data-shader-code]").value;const ok=code.includes("color")&&code.includes("time");$(stage,"[data-compile-status]").textContent=ok?"Material compiled.":"Compile error: assign a color and use time.";$(stage,"[data-compile-status]").className=ok?"pass":"fail";});sync();draw();onReady?.({engineType:"PROCEDURAL RENDERER"});return baseController(stage,()=>cancelAnimationFrame(frame));
 }
 
-function shaderTemplate(config) {
-  return toolShell(config, `<div class="shader-layout">
-    <section class="shader-preview"><canvas width="900" height="620" data-shader-canvas></canvas><div class="shader-label"><span>PROCEDURAL MATERIAL</span><strong data-shader-name>NEURAL PLASMA</strong></div></section>
-    <aside class="shader-controls"><header>MATERIAL CONTROLS</header><label>Pattern<select data-shader-pattern><option value="plasma">Neural plasma</option><option value="grid">Data grid</option><option value="rings">Signal rings</option><option value="terrain">Topographic</option></select></label><label>Speed <output data-shader-speed-output>1.0</output><input type="range" min="0" max="3" step="0.1" value="1" data-shader-speed></label><label>Scale <output data-shader-scale-output>3.0</output><input type="range" min="1" max="10" step="0.1" value="3" data-shader-scale></label><label>Distortion <output data-shader-distort-output>0.35</output><input type="range" min="0" max="1" step="0.01" value="0.35" data-shader-distort></label><label>Glow <output data-shader-glow-output>0.70</output><input type="range" min="0" max="1" step="0.01" value="0.7" data-shader-glow></label><button data-shader-randomize>RANDOMIZE MATERIAL</button></aside>
-    <aside class="shader-code"><header>GENERATED PARAMETERS</header><pre data-shader-code></pre><p>Rendered with Canvas 2D procedural math so the experiment remains lightweight and works without external textures.</p></aside>
-  </div>`);
+function hash(value){let h=2166136261;for(const c of value){h^=c.charCodeAt(0);h=Math.imul(h,16777619);}return h>>>0;}function rng(seed){let s=seed>>>0;return()=>((s=Math.imul(s,1664525)+1013904223>>>0)/4294967296);}
+function createWorld({stage,onReady}){
+  stage.innerHTML=`<section class="demo-surface tool-world"><header class="world-top"><div><span>DETERMINISTIC REGION STUDIO</span><h2>Procedural World Generator</h2></div><button data-world-generate>Generate world</button></header><div class="world-shell"><main class="world-map"><canvas width="1200" height="800" data-world-canvas></canvas><div class="world-zoom"><button data-zoom="in">+</button><button data-zoom="out">−</button><button data-zoom="reset">⌂</button></div><div class="world-tooltip" data-world-tooltip hidden></div></main><aside class="world-controls"><h3>WORLD PARAMETERS</h3><label>Seed<div><input value="MATERA-2026" data-world-seed><button data-world-random>↻</button></div></label><label>Water level <output data-water-output>38%</output><input type="range" min="20" max="60" value="38" data-world-water></label><label>Forest density <output data-forest-output>45%</output><input type="range" min="0" max="90" value="45" data-world-forest></label><label>Settlements <output data-town-output>5</output><input type="range" min="0" max="12" value="5" data-world-towns></label><label class="switch"><span>Road network</span><input type="checkbox" checked data-world-roads><i></i></label><div class="world-stats"><article><span>LAND</span><strong data-land-stat>--</strong></article><article><span>FOREST</span><strong data-forest-stat>--</strong></article><article><span>TOWNS</span><strong data-town-stat>--</strong></article><article><span>ROUTES</span><strong data-road-stat>--</strong></article></div><div class="world-legend"><span><i class="water"></i>Water</span><span><i class="plains"></i>Plains</span><span><i class="forest"></i>Forest</span><span><i class="mountain"></i>Mountain</span><span><i class="town"></i>Settlement</span></div></aside></div></section>`;
+  const canvas=$(stage,"[data-world-canvas]"),ctx=canvas.getContext("2d");let scale=1,offsetX=0,offsetY=0,lastWorld=null,drag=false,startX=0,startY=0;const water=$(stage,"[data-world-water]"),forest=$(stage,"[data-world-forest]"),towns=$(stage,"[data-world-towns]");function sync(){ $(stage,"[data-water-output]").textContent=`${water.value}%`;$(stage,"[data-forest-output]").textContent=`${forest.value}%`;$(stage,"[data-town-output]").textContent=towns.value;}[water,forest,towns].forEach(i=>i.addEventListener("input",sync));
+  function generate(){const rand=rng(hash($(stage,"[data-world-seed]").value));const cols=80,rows=54,cells=[];let land=0,woods=0;for(let y=0;y<rows;y++){for(let x=0;x<cols;x++){const n=(Math.sin(x*.17)+Math.cos(y*.13)+Math.sin((x+y)*.08)+rand()*2)/5;let biome=n<Number(water.value)/100-.08?"water":n>.55?"mountain":rand()<Number(forest.value)/130?"forest":"plains";if(biome!=="water")land++;if(biome==="forest")woods++;cells.push({x,y,biome,n});}}const landCells=cells.filter(c=>c.biome!=="water"&&c.biome!=="mountain");const settlements=Array.from({length:Number(towns.value)},(_,i)=>({...landCells[Math.floor(rand()*landCells.length)],name:["Matera Point","Summerset","Rockford","Freeport","Beloit","Madison","Oak Ridge","Northstar","Cloudhaven","Fairway"][(i+Math.floor(rand()*5))%10]}));lastWorld={cols,rows,cells,settlements};$(stage,"[data-land-stat]").textContent=`${Math.round(land/cells.length*100)}%`;$(stage,"[data-forest-stat]").textContent=`${Math.round(woods/cells.length*100)}%`;$(stage,"[data-town-stat]").textContent=settlements.length;$(stage,"[data-road-stat]").textContent=$(stage,"[data-world-roads]").checked?Math.max(0,settlements.length-1):0;draw();}
+  function draw(){if(!lastWorld)return;ctx.setTransform(1,0,0,1,0,0);ctx.fillStyle="#08131b";ctx.fillRect(0,0,canvas.width,canvas.height);ctx.setTransform(scale,0,0,scale,offsetX,offsetY);const cw=canvas.width/lastWorld.cols,ch=canvas.height/lastWorld.rows;const colors={water:"#174e72",plains:"#7a9653",forest:"#245d3e",mountain:"#766f69"};for(const c of lastWorld.cells){ctx.fillStyle=colors[c.biome];ctx.fillRect(c.x*cw,c.y*ch,cw+.5,ch+.5);}if($(stage,"[data-world-roads]").checked&&lastWorld.settlements.length>1){ctx.strokeStyle="#e2c48d";ctx.lineWidth=3/scale;ctx.setLineDash([7/scale,5/scale]);ctx.beginPath();lastWorld.settlements.forEach((s,i)=>{const x=(s.x+.5)*cw,y=(s.y+.5)*ch;i?ctx.lineTo(x,y):ctx.moveTo(x,y);});ctx.stroke();ctx.setLineDash([]);}for(const s of lastWorld.settlements){const x=(s.x+.5)*cw,y=(s.y+.5)*ch;ctx.fillStyle="#ffd36e";ctx.beginPath();ctx.arc(x,y,6/scale,0,Math.PI*2);ctx.fill();ctx.font=`${13/scale}px sans-serif`;ctx.fillStyle="#fff";ctx.fillText(s.name,x+9/scale,y-7/scale);}}
+  $(stage,"[data-world-generate]").addEventListener("click",generate);$(stage,"[data-world-random]").addEventListener("click",()=>{$(stage,"[data-world-seed]").value=`MATERA-${Math.floor(Math.random()*99999)}`;generate();});$$(stage,"[data-zoom]").forEach(b=>b.addEventListener("click",()=>{if(b.dataset.zoom==="in")scale=Math.min(3,scale*1.25);if(b.dataset.zoom==="out")scale=Math.max(.7,scale/1.25);if(b.dataset.zoom==="reset"){scale=1;offsetX=0;offsetY=0;}draw();}));canvas.addEventListener("pointerdown",e=>{drag=true;startX=e.clientX-offsetX;startY=e.clientY-offsetY;canvas.setPointerCapture(e.pointerId);});canvas.addEventListener("pointermove",e=>{if(!drag)return;offsetX=e.clientX-startX;offsetY=e.clientY-startY;draw();});canvas.addEventListener("pointerup",()=>drag=false);sync();generate();onReady?.({engineType:"SEEDED MAP ENGINE"});return baseController(stage,undefined,()=>{scale=1;offsetX=0;offsetY=0;generate();});
 }
 
-function worldTemplate(config) {
-  return toolShell(config, `<div class="world-layout">
-    <section class="world-preview"><canvas width="1000" height="680" data-world-canvas></canvas><div class="world-legend"><span><i class="water"></i>Water</span><span><i class="plains"></i>Plains</span><span><i class="forest"></i>Forest</span><span><i class="mountain"></i>Mountain</span><span><i class="town"></i>Settlement</span></div></section>
-    <aside class="world-controls"><header>WORLD PARAMETERS</header><label>Seed<div><input value="MATERA-2026" data-world-seed><button data-world-random>↻</button></div></label><label>Water level <output data-water-output>38%</output><input type="range" min="20" max="60" value="38" data-world-water></label><label>Forest density <output data-forest-output>45%</output><input type="range" min="0" max="90" value="45" data-world-forest></label><label>Settlements <output data-town-output>5</output><input type="range" min="0" max="12" value="5" data-world-towns></label><label class="switch-label"><span>Road network</span><input type="checkbox" checked data-world-roads><i></i></label><button data-world-generate>GENERATE WORLD</button></aside>
-    <aside class="world-stats"><header>GENERATED REGION</header><article><span>LAND AREA</span><strong data-land-stat>--</strong></article><article><span>FOREST</span><strong data-forest-stat>--</strong></article><article><span>SETTLEMENTS</span><strong data-town-stat>--</strong></article><article><span>TRADE ROUTES</span><strong data-road-stat>--</strong></article><p>Every map is deterministic. Reusing the same seed and controls recreates the same world.</p></aside>
-  </div>`);
-}
-
-function hashString(value) {
-  let hash = 2166136261;
-  for (let i = 0; i < value.length; i += 1) {
-    hash ^= value.charCodeAt(i);
-    hash = Math.imul(hash, 16777619);
-  }
-  return hash >>> 0;
-}
-
-function rng(seed) {
-  let state = seed >>> 0;
-  return () => ((state = Math.imul(state, 1664525) + 1013904223 >>> 0) / 4294967296);
-}
-
-function wireArchitecture(stage) {
-  const deployed = [];
-  const lane = stage.querySelector("[data-deployed]");
-  const update = () => {
-    lane.innerHTML = deployed.map((service, index) => `<button data-remove-service="${index}"><i>${service.icon}</i><strong>${service.name}</strong><small>${index + 1}</small></button>`).join("<span class='service-link'>→</span>");
-    stage.querySelector("[data-empty-state]").hidden = deployed.length > 0;
-    const cost = deployed.reduce((sum, service) => sum + service.cost, 0);
-    const latency = Math.max(22, 140 + deployed.reduce((sum, service) => sum + service.latency, 0));
-    const reliability = Math.min(99.99, 88 + deployed.reduce((sum, service) => sum + service.reliability, 0));
-    stage.querySelector("[data-arch-cost]").textContent = `$${cost}/mo`;
-    stage.querySelector("[data-arch-latency]").textContent = `${latency} ms`;
-    stage.querySelector("[data-arch-reliability]").textContent = `${reliability.toFixed(2)}%`;
-    lane.querySelectorAll("[data-remove-service]").forEach((button) => button.addEventListener("click", () => { deployed.splice(Number(button.dataset.removeService), 1); update(); }));
-  };
-  stage.querySelectorAll("[data-add-service]").forEach((button) => button.addEventListener("click", () => { deployed.push(ARCH_SERVICES.find((service) => service.id === button.dataset.addService)); update(); }));
-  stage.querySelector('[data-arch-action="clear"]').addEventListener("click", () => { deployed.splice(0); update(); });
-  stage.querySelector('[data-arch-action="simulate"]').addEventListener("click", () => {
-    const packet = stage.querySelector("[data-request-packet]");
-    const status = stage.querySelector("[data-arch-status]");
-    if (!deployed.length) { status.textContent = "NO PATH"; return; }
-    packet.classList.remove("run"); void packet.offsetWidth; packet.classList.add("run");
-    status.textContent = "RUNNING";
-    setTimeout(() => { status.textContent = deployed.some((service) => service.id === "database" || service.id === "function") ? "200 OK" : "204 EMPTY"; }, 1400);
-  });
-  update();
-}
-
-function wireWorkflow(stage) {
-  const nodes = [];
-  let runTimer;
-  const lane = stage.querySelector("[data-workflow-lane]");
-  const log = stage.querySelector("[data-workflow-log]");
-  const render = () => {
-    lane.innerHTML = nodes.map((node, index) => `<li data-work-node="${index}" class="${node.state || "waiting"}"><button data-remove-node="${index}" title="Remove node">×</button><i class="${node.type}">${node.icon}</i><span><strong>${node.name}</strong><small>${node.state || "waiting"}</small></span></li>`).join("");
-    stage.querySelector("[data-workflow-empty]").hidden = nodes.length > 0;
-    stage.querySelector("[data-workflow-count]").textContent = nodes.length;
-    stage.querySelector("[data-workflow-context]").textContent = `${nodes.length * 640} tokens`;
-    stage.querySelector("[data-workflow-approvals]").textContent = nodes.filter((node) => node.type === "approval").length;
-    lane.querySelectorAll("[data-remove-node]").forEach((button) => button.addEventListener("click", () => { nodes.splice(Number(button.dataset.removeNode), 1); render(); }));
-  };
-  stage.querySelectorAll("[data-add-workflow]").forEach((button) => button.addEventListener("click", () => { nodes.push({ ...WORKFLOW_NODES[Number(button.dataset.addWorkflow)] }); render(); }));
-  stage.querySelector('[data-workflow-action="clear"]').addEventListener("click", () => { clearInterval(runTimer); nodes.splice(0); log.innerHTML = "<p>Workflow cleared.</p>"; render(); });
-  stage.querySelector('[data-workflow-action="run"]').addEventListener("click", () => {
-    clearInterval(runTimer); if (!nodes.length) return;
-    nodes.forEach((node) => { node.state = "waiting"; }); let index = 0; log.replaceChildren();
-    const step = () => { nodes.forEach((node, i) => { node.state = i < index ? "complete" : i === index ? "running" : "waiting"; }); render(); if (index < nodes.length) log.insertAdjacentHTML("afterbegin", `<p><b>${String(index + 1).padStart(2, "0")}</b> ${nodes[index].name} entered running state.</p>`); index += 1; if (index > nodes.length) { clearInterval(runTimer); stage.querySelector("[data-workflow-status]").textContent = "Run complete"; } };
-    stage.querySelector("[data-workflow-status]").textContent = "Running"; step(); runTimer = setInterval(step, 850);
-  });
-  render();
-  return () => clearInterval(runTimer);
-}
-
-function wireSeo(stage) {
-  const input = stage.querySelector("[data-seo-input]");
-  const run = () => {
-    const value = input.value;
-    const checks = [
-      [/<title>[^<]{20,65}<\/title>/i.test(value), "Descriptive title between 20 and 65 characters"],
-      [/meta name=["']description["']/i.test(value), "Meta description is present"],
-      [/<h1[\s>]/i.test(value), "One primary H1 communicates the page purpose"],
-      [/<h2[\s>]/i.test(value), "Supporting H2 structure is present"],
-      [/<p[\s>][\s\S]{40,}<\/p>/i.test(value), "Substantive explanatory copy is available"],
-      [/<a[\s>]/i.test(value), "A crawlable next action is present"],
-      [/(Brad Matera|AWS|cloud|engineering|agent)/i.test(value), "Recognizable entities and topic language are present"],
-      [/(what|how|why|build|explore|verified|systems)/i.test(value), "Content contains answer-oriented language"],
-    ];
-    const passed = checks.filter(([ok]) => ok).length;
-    const score = Math.round((passed / checks.length) * 100);
-    stage.querySelector("[data-seo-score]").textContent = score;
-    stage.querySelector("[data-seo-ring]").style.setProperty("--score", `${score * 3.6}deg`);
-    stage.querySelector("[data-seo-checks]").innerHTML = checks.map(([ok, label]) => `<article class="${ok ? "pass" : "fail"}"><span>${ok ? "✓" : "!"}</span><p>${label}</p><b>${ok ? "PASS" : "FIX"}</b></article>`).join("");
-    const title = value.match(/<title>([^<]+)<\/title>/i)?.[1] || "Untitled page";
-    const description = value.match(/meta name=["']description["'] content=["']([^"']+)/i)?.[1] || "No meta description found.";
-    const answer = value.match(/<p[^>]*>([^<]{35,})<\/p>/i)?.[1] || "No concise explanatory paragraph was found.";
-    stage.querySelector("[data-preview-title]").textContent = title;
-    stage.querySelector("[data-preview-description]").textContent = description;
-    stage.querySelector("[data-answer-preview]").textContent = answer;
-  };
-  stage.querySelector("[data-seo-run]").addEventListener("click", run);
-  stage.querySelector("[data-seo-sample]").addEventListener("click", run);
-  run();
-}
-
-function wireAccessibility(stage) {
-  const issues = { contrast: "Text contrast falls below a readable target.", labels: "Form controls no longer expose visible labels.", focus: "Keyboard focus is hidden.", headings: "Heading hierarchy skips levels.", motion: "Motion ignores reduced-motion preference.", target: "Interactive targets are too small." };
-  const preview = stage.querySelector("[data-a11y-preview]");
-  const update = () => {
-    const active = [...stage.querySelectorAll("[data-a11y-toggle]:checked")].map((input) => input.dataset.a11yToggle);
-    preview.className = `a11y-preview ${active.map((id) => `issue-${id}`).join(" ")}`;
-    stage.querySelectorAll("[data-form-label]").forEach((label) => label.classList.toggle("visually-remove-label", active.includes("labels")));
-    stage.querySelector("[data-heading]").outerHTML = active.includes("headings") ? '<h4 data-heading>Technology should work for everyone.</h4>' : '<h2 data-heading>Technology should work for everyone.</h2>';
-    const score = Math.max(12, 100 - active.length * 14);
-    stage.querySelector("[data-a11y-score]").textContent = score;
-    stage.querySelector("[data-a11y-list]").innerHTML = active.length ? active.map((id) => `<li class="fail">${issues[id]}</li>`).join("") : '<li class="pass">No deliberate failures enabled.</li>';
-  };
-  stage.querySelectorAll("[data-a11y-toggle]").forEach((input) => input.addEventListener("change", update));
-  stage.querySelector("[data-a11y-keyboard]").addEventListener("click", () => { stage.querySelector(".preview-site a, .preview-site input, .preview-site button")?.focus(); });
-  update();
-}
-
-function wireApi(stage) {
-  const latency = stage.querySelector("[data-api-latency]");
-  const log = stage.querySelector("[data-api-log]");
-  let timers = [];
-  const addLog = (message, level = "") => { log.insertAdjacentHTML("afterbegin", `<li class="${level}"><time>${new Date().toLocaleTimeString([], { minute: "2-digit", second: "2-digit" })}</time><span>${message}</span></li>`); };
-  latency.addEventListener("input", () => { stage.querySelector("[data-latency-output]").textContent = `${latency.value} ms`; });
-  stage.querySelector("[data-api-clear]").addEventListener("click", () => log.replaceChildren());
-  stage.querySelector("[data-api-run]").addEventListener("click", () => {
-    timers.forEach(clearTimeout); timers = []; const mode = stage.querySelector("[data-api-mode]").value; const retries = Number(stage.querySelector("[data-api-retries]").value); const fallback = stage.querySelector("[data-api-fallback]").checked; const delay = Math.min(Number(latency.value), 1600);
-    stage.querySelector("[data-primary-state]").textContent = "REQUESTING"; stage.querySelector("[data-fallback-state]").textContent = "STANDBY"; stage.querySelector("[data-api-response] strong").textContent = "Pending"; addLog("Request dispatched to primary provider.");
-    const finish = (provider) => { stage.querySelector("[data-api-response] strong").textContent = "200 OK"; stage.querySelector("[data-api-response] pre").textContent = JSON.stringify({ provider, verified: true, latency_ms: delay }, null, 2); addLog(`${provider} returned a valid response.`, "success"); };
-    timers.push(setTimeout(() => {
-      if (mode === "none") { stage.querySelector("[data-primary-state]").textContent = "200 OK"; finish("primary"); return; }
-      stage.querySelector("[data-primary-state]").textContent = mode.toUpperCase(); addLog(`Primary failed with ${mode}.`, "error");
-      let attempt = 0;
-      const retry = () => { if (attempt < retries) { attempt += 1; addLog(`Retry ${attempt}/${retries} after backoff.`, "warn"); timers.push(setTimeout(retry, 400 + attempt * 240)); } else if (fallback) { stage.querySelector("[data-fallback-state]").textContent = "REQUESTING"; addLog("Retry budget exhausted; fallback engaged.", "warn"); timers.push(setTimeout(() => { stage.querySelector("[data-fallback-state]").textContent = "200 OK"; finish("fallback"); }, 650)); } else { stage.querySelector("[data-api-response] strong").textContent = "FAILED"; stage.querySelector("[data-api-response] pre").textContent = JSON.stringify({ error: mode, retries }, null, 2); addLog("Request failed without a fallback.", "error"); } };
-      retry();
-    }, delay));
-  });
-  return () => timers.forEach(clearTimeout);
-}
-
-function wireShader(stage) {
-  const canvas = stage.querySelector("[data-shader-canvas]"); const ctx = canvas.getContext("2d"); let frame; let time = 0;
-  const controls = { pattern: stage.querySelector("[data-shader-pattern]"), speed: stage.querySelector("[data-shader-speed]"), scale: stage.querySelector("[data-shader-scale]"), distort: stage.querySelector("[data-shader-distort]"), glow: stage.querySelector("[data-shader-glow]") };
-  const updateText = () => { stage.querySelector("[data-shader-speed-output]").textContent = Number(controls.speed.value).toFixed(1); stage.querySelector("[data-shader-scale-output]").textContent = Number(controls.scale.value).toFixed(1); stage.querySelector("[data-shader-distort-output]").textContent = Number(controls.distort.value).toFixed(2); stage.querySelector("[data-shader-glow-output]").textContent = Number(controls.glow.value).toFixed(2); stage.querySelector("[data-shader-name]").textContent = controls.pattern.selectedOptions[0].textContent.toUpperCase(); stage.querySelector("[data-shader-code]").textContent = `pattern: ${controls.pattern.value}\nspeed: ${controls.speed.value}\nscale: ${controls.scale.value}\ndistortion: ${controls.distort.value}\nglow: ${controls.glow.value}`; };
-  Object.values(controls).forEach((control) => control.addEventListener("input", updateText));
-  stage.querySelector("[data-shader-randomize]").addEventListener("click", () => { controls.pattern.selectedIndex = Math.floor(Math.random() * 4); controls.speed.value = (Math.random() * 2.7 + 0.2).toFixed(1); controls.scale.value = (Math.random() * 7 + 2).toFixed(1); controls.distort.value = Math.random().toFixed(2); controls.glow.value = (Math.random() * 0.7 + 0.25).toFixed(2); updateText(); });
-  const draw = () => { const w = canvas.width; const h = canvas.height; const scale = Number(controls.scale.value); const distortion = Number(controls.distort.value); const glow = Number(controls.glow.value); time += Number(controls.speed.value) * 0.018; const image = ctx.createImageData(w / 4, h / 4); const iw = image.width; const ih = image.height; for (let y = 0; y < ih; y += 1) { for (let x = 0; x < iw; x += 1) { const nx = x / iw * scale; const ny = y / ih * scale; let v; if (controls.pattern.value === "grid") v = Math.sin(nx * 10 + time) * Math.sin(ny * 10 - time); else if (controls.pattern.value === "rings") v = Math.sin(Math.hypot(nx - scale / 2, ny - scale / 2) * 12 - time * 5); else if (controls.pattern.value === "terrain") v = Math.sin(nx * 3 + Math.sin(ny * 2 + time)) + Math.cos(ny * 4 - time); else v = Math.sin(nx * 3 + time + Math.sin(ny * 2)) + Math.cos(ny * 4 - time + Math.sin(nx * distortion * 5)); const index = (y * iw + x) * 4; const n = (v + 2) / 4; image.data[index] = 20 + n * 235 * glow; image.data[index + 1] = 60 + (1 - n) * 170; image.data[index + 2] = 120 + n * 135; image.data[index + 3] = 255; } } const off = document.createElement("canvas"); off.width = iw; off.height = ih; off.getContext("2d").putImageData(image, 0, 0); ctx.imageSmoothingEnabled = true; ctx.drawImage(off, 0, 0, w, h); frame = requestAnimationFrame(draw); };
-  updateText(); draw(); return () => cancelAnimationFrame(frame);
-}
-
-function wireWorld(stage) {
-  const canvas = stage.querySelector("[data-world-canvas]"); const ctx = canvas.getContext("2d");
-  const controls = { seed: stage.querySelector("[data-world-seed]"), water: stage.querySelector("[data-world-water]"), forest: stage.querySelector("[data-world-forest]"), towns: stage.querySelector("[data-world-towns]"), roads: stage.querySelector("[data-world-roads]") };
-  const generate = () => { const random = rng(hashString(`${controls.seed.value}-${controls.water.value}-${controls.forest.value}-${controls.towns.value}`)); const cols = 64; const rows = 44; const cw = canvas.width / cols; const ch = canvas.height / rows; const water = Number(controls.water.value) / 100; const forest = Number(controls.forest.value) / 100; const map = []; let land = 0; let forestCount = 0; for (let y = 0; y < rows; y += 1) { map[y] = []; for (let x = 0; x < cols; x += 1) { const edge = Math.min(x, y, cols - x, rows - y) / 10; const noise = (Math.sin(x * 0.21 + random() * 2) + Math.cos(y * 0.27 + random() * 2) + Math.sin((x + y) * 0.11)) / 3; const elevation = noise * 0.25 + random() * 0.55 + Math.min(1, edge) * 0.2; let type = elevation < water ? "water" : elevation > 0.82 ? "mountain" : random() < forest ? "forest" : "plains"; map[y][x] = type; if (type !== "water") land += 1; if (type === "forest") forestCount += 1; ctx.fillStyle = { water: "#0b4461", plains: "#5d8154", forest: "#244f3a", mountain: "#77786f" }[type]; ctx.fillRect(x * cw, y * ch, cw + 1, ch + 1); } } const settlements = []; let attempts = 0; while (settlements.length < Number(controls.towns.value) && attempts < 500) { attempts += 1; const x = Math.floor(random() * cols); const y = Math.floor(random() * rows); if (map[y][x] !== "water" && map[y][x] !== "mountain" && settlements.every((town) => Math.hypot(town.x - x, town.y - y) > 6)) settlements.push({ x, y }); } if (controls.roads.checked && settlements.length > 1) { ctx.strokeStyle = "rgba(239,210,143,.8)"; ctx.lineWidth = 3; for (let i = 1; i < settlements.length; i += 1) { ctx.beginPath(); ctx.moveTo((settlements[i - 1].x + .5) * cw, (settlements[i - 1].y + .5) * ch); ctx.lineTo((settlements[i].x + .5) * cw, (settlements[i].y + .5) * ch); ctx.stroke(); } } settlements.forEach((town, index) => { ctx.fillStyle = "#ffe59c"; ctx.beginPath(); ctx.arc((town.x + .5) * cw, (town.y + .5) * ch, 6, 0, Math.PI * 2); ctx.fill(); ctx.fillStyle = "#091018"; ctx.font = "bold 9px sans-serif"; ctx.fillText(String(index + 1), town.x * cw + 2, town.y * ch + 4); }); const total = cols * rows; stage.querySelector("[data-land-stat]").textContent = `${Math.round(land / total * 100)}%`; stage.querySelector("[data-forest-stat]").textContent = `${Math.round(forestCount / total * 100)}%`; stage.querySelector("[data-town-stat]").textContent = settlements.length; stage.querySelector("[data-road-stat]").textContent = controls.roads.checked ? Math.max(0, settlements.length - 1) : 0; };
-  controls.water.addEventListener("input", () => { stage.querySelector("[data-water-output]").textContent = `${controls.water.value}%`; }); controls.forest.addEventListener("input", () => { stage.querySelector("[data-forest-output]").textContent = `${controls.forest.value}%`; }); controls.towns.addEventListener("input", () => { stage.querySelector("[data-town-output]").textContent = controls.towns.value; }); stage.querySelector("[data-world-random]").addEventListener("click", () => { controls.seed.value = Math.random().toString(36).slice(2, 10).toUpperCase(); generate(); }); stage.querySelector("[data-world-generate]").addEventListener("click", generate); generate();
-}
-
-function templateFor(config, id) {
-  if (id === "architecture-builder") return architectureTemplate(config);
-  if (id === "workflow-designer") return workflowTemplate(config);
-  if (id === "seo-auditor") return seoTemplate(config);
-  if (id === "accessibility-lab") return accessibilityTemplate(config);
-  if (id === "api-failure-lab") return apiTemplate(config);
-  if (id === "shader-lab") return shaderTemplate(config);
-  return worldTemplate(config);
-}
-
-export function createInteractiveTool({ stage, demo, onReady }) {
-  const config = TOOL_CONFIG[demo.id]; let cleanup = () => {};
-  stage.innerHTML = templateFor(config, demo.id);
-  if (demo.id === "architecture-builder") wireArchitecture(stage);
-  else if (demo.id === "workflow-designer") cleanup = wireWorkflow(stage);
-  else if (demo.id === "seo-auditor") wireSeo(stage);
-  else if (demo.id === "accessibility-lab") wireAccessibility(stage);
-  else if (demo.id === "api-failure-lab") cleanup = wireApi(stage);
-  else if (demo.id === "shader-lab") cleanup = wireShader(stage);
-  else wireWorld(stage);
-  onReady?.({ engineType: demo.id === "shader-lab" || demo.id === "procedural-world" ? "CANVAS 2D" : "DOM TOOL" });
-  return { dispose() { cleanup(); stage.replaceChildren(); }, getStats() { return { fps: "60", meshes: stage.querySelectorAll("button, article, canvas, li").length }; }, setGuidedOrbit() {}, resetCamera() { stage.querySelector("main, section")?.scrollTo?.({ top: 0, behavior: "smooth" }); } };
-}
+const creators={"architecture-builder":createArchitecture,"workflow-designer":createWorkflow,"seo-auditor":createSeo,"accessibility-lab":createAccessibility,"api-failure-lab":createApi,"shader-lab":createShader,"procedural-world":createWorld};
+export function createInteractiveTool(context){const create=creators[context.demo.id];if(!create)throw new Error(`Unknown tool: ${context.demo.id}`);return create(context);}

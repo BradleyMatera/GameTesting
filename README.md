@@ -8,6 +8,16 @@ https://bradleymatera.github.io/GameTesting/
 
 GitHub Pages deploys automatically from `main` through `.github/workflows/deploy-pages.yml`.
 
+## Second-generation overhaul
+
+The current release replaces the repeated simulation, tool, and game shells with purpose-built interaction models:
+
+- Six separate simulation engines for office operations, provider routing, incident response, live calls, retrieval evidence, and Git delivery.
+- Seven separate tool interfaces for graph editing, workflow execution, SEO reporting, accessibility inspection, request tracing, shader editing, and procedural mapping.
+- Six separate game systems covering real-time management, projectile physics, tile exploration, tower defense, genetic evolution, and logistics routing.
+- A responsive `production-v2.css` visual system that preserves the shared gallery while giving every demo its own workspace and playfield.
+- Fullscreen presentation, compact DOM-demo headers, active-demo auto-scrolling, and truthful reset or pause behavior.
+
 ## Demo catalog
 
 ### Experience
@@ -61,6 +71,7 @@ The website demos are responsive, navigable frontend experiences with working fi
 ├── index.html
 ├── styles.css
 ├── lab-expansion.css
+├── production-v2.css
 ├── js/
 │   ├── app.js
 │   ├── demo-registry.js
