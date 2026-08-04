@@ -55,7 +55,7 @@ export function createVoiceOps({ stage, toast }) {
     if (name === 'Unknown caller') return '??';
     return name.split(/\s+/).map(part => part[0]).slice(0, 2).join('').toUpperCase();
   }
-  function event(call, message) {
+  function recordCallEvent(call, message) {
     call.events.unshift(message);
     appendLog(stage, '[data-events]', message);
   }
@@ -129,7 +129,7 @@ export function createVoiceOps({ stage, toast }) {
     call.state = 'active';
     call.answeredAt ??= call.waitSeconds;
     call.transcript.push({ speaker: 'Agent', text: `Thanks for calling. I can help with ${call.intent.toLowerCase()}.` });
-    event(call, `Call answered by ${call.agent}.`);
+    recordCallEvent(call, `Call answered by ${call.agent}.`);
     toast(`Answered ${call.name}`);
     render();
   }
@@ -143,19 +143,19 @@ export function createVoiceOps({ stage, toast }) {
     const call = selectedCall();
     if (!call) return;
     if (action === 'hold' && call.state === 'active') {
-      call.state = 'held'; event(call, 'Caller placed on hold.');
+      call.state = 'held'; recordCallEvent(call, 'Caller placed on hold.');
     } else if (action === 'resume' && call.state === 'held' && !activeCall()) {
-      call.state = 'active'; event(call, 'Call resumed from hold.');
+      call.state = 'active'; recordCallEvent(call, 'Call resumed from hold.');
     } else if (action === 'transfer' && ['active', 'held'].includes(call.state)) {
       const destination = qs(stage, '[data-transfer]').value;
       call.state = 'transferred'; call.agent = destination;
       call.transcript.push({ speaker: 'System', text: `Transferred to ${destination}.` });
-      event(call, `Transferred to ${destination}; returned to the waiting queue.`);
+      recordCallEvent(call, `Transferred to ${destination}; returned to the waiting queue.`);
       toast(`Transferred to ${destination}`);
     } else if (action === 'resolve' && ['active', 'held', 'transferred'].includes(call.state)) {
       call.state = 'resolved';
       call.transcript.push({ speaker: 'Agent', text: 'I have completed the requested next step. Thank you for calling.' });
-      event(call, 'Call resolved and final summary saved.');
+      recordCallEvent(call, 'Call resolved and final summary saved.');
       toast('Call resolved');
     }
     render();
@@ -175,20 +175,20 @@ export function createVoiceOps({ stage, toast }) {
     render();
   }
 
-  stage.addEventListener('change', event => {
+  stage.addEventListener('change', interaction => {
     const call = selectedCall();
     if (!call || call.state === 'resolved') return;
-    if (event.target.matches('[data-appointment]')) call.appointmentDraft = event.target.value;
+    if (interaction.target.matches('[data-appointment]')) call.appointmentDraft = interaction.target.value;
   });
-  stage.addEventListener('input', event => {
+  stage.addEventListener('input', interaction => {
     const call = selectedCall();
     if (!call || call.state === 'resolved') return;
-    if (event.target.matches('[data-notes]')) call.notesDraft = event.target.value;
+    if (interaction.target.matches('[data-notes]')) call.notesDraft = interaction.target.value;
   });
-  stage.addEventListener('click', event => {
-    const callButton = event.target.closest('[data-call]');
+  stage.addEventListener('click', interaction => {
+    const callButton = interaction.target.closest('[data-call]');
     if (callButton) { select(callButton.dataset.call); return; }
-    const action = event.target.closest('[data-action]')?.dataset.action;
+    const action = interaction.target.closest('[data-action]')?.dataset.action;
     const call = selectedCall();
     if (action === 'add-call') addIncoming();
     else if (action === 'answer-next') answerNext();
@@ -196,15 +196,18 @@ export function createVoiceOps({ stage, toast }) {
     else if (['hold', 'resume', 'transfer', 'resolve'].includes(action)) transition(action);
     else if (action === 'schedule') {
       if (!call || call.state === 'resolved') return;
-      if (!call.appointmentDraft) return toast('Choose an appointment time.');
-      call.appointment = call.appointmentDraft;
-      event(call, `Appointment scheduled for ${call.appointment}.`);
+      const selectedAppointment = qs(stage, '[data-appointment]').value || call.appointmentDraft;
+      if (!selectedAppointment) return toast('Choose an appointment time.');
+      call.appointmentDraft = selectedAppointment;
+      call.appointment = selectedAppointment;
+      recordCallEvent(call, `Appointment scheduled for ${call.appointment}.`);
       toast('Appointment saved'); render();
     } else if (action === 'save-notes') {
       if (!call || call.state === 'resolved') return;
+      call.notesDraft = qs(stage, '[data-notes]').value;
       call.notes = call.notesDraft.trim();
       call.notesDraft = call.notes;
-      event(call, call.notes ? 'Agent notes saved.' : 'Agent notes cleared.');
+      recordCallEvent(call, call.notes ? 'Agent notes saved.' : 'Agent notes cleared.');
       toast('Call notes saved'); render();
     }
   });
