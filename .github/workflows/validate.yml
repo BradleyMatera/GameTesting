@@ -27,7 +27,8 @@ jobs:
           set -euo pipefail
           required=(
             index.html README.md .nojekyll
-            css/base.css css/components.css css/layouts.css css/simulation-products.css css/sites.css
+            css/base.css css/components.css css/layouts.css css/simulation-products.css
+            css/simulation-cinematic.css css/simulation-overlay.css css/sites.css
             css/tools-a.css css/tools-b.css css/tool-products.css css/tool-product-layouts.css css/responsive.css
             js/app.js js/registry.js js/core/scene.js js/core/scene-base.js js/core/scene-models.js
             js/demos/experience.js js/demos/simulations.js js/demos/websites.js js/demos/tools.js js/demos/games.js
@@ -39,8 +40,8 @@ jobs:
             js/demos/tools/seo-auditor.js js/demos/tools/accessibility-lab.js js/demos/tools/api-failure-lab.js
             js/demos/tools/shader-lab.js js/demos/tools/world-generator.js
             assets/asset-manifest.md assets/agency-hero.svg assets/golf-products.svg
-            assets/lms-course.svg assets/construction-site.svg assets/portfolio-projects.svg
-            tests/visual-smoke.mjs tests/simulation-workflows.mjs tests/tool-workflows.mjs
+            assets/lms-course.svg assets/construction-site.svg assets/portfolio-projects.svg assets/simulation-scenes.svg
+            tests/visual-smoke.mjs tests/simulation-workflows.mjs tests/simulation-visuals.mjs tests/tool-workflows.mjs
           )
           for file in "${required[@]}"; do test -s "$file"; done
           count=$(grep -c "^  d('" js/registry.js)
@@ -96,7 +97,9 @@ jobs:
           curl --fail http://127.0.0.1:8080/js/app.js >/dev/null
           curl --fail http://127.0.0.1:8080/js/demos/simulations/simulation-utils.js >/dev/null
           curl --fail http://127.0.0.1:8080/js/demos/tools/tool-utils.js >/dev/null
-          curl --fail http://127.0.0.1:8080/css/simulation-products.css >/dev/null
+          curl --fail http://127.0.0.1:8080/css/simulation-cinematic.css >/dev/null
+          curl --fail http://127.0.0.1:8080/css/simulation-overlay.css >/dev/null
+          curl --fail http://127.0.0.1:8080/assets/simulation-scenes.svg >/dev/null
           curl --fail http://127.0.0.1:8080/css/tool-product-layouts.css >/dev/null
 
       - name: Install browser test dependency
@@ -107,6 +110,9 @@ jobs:
 
       - name: Run complete simulation workflow tests
         run: node tests/simulation-workflows.mjs
+
+      - name: Run simulation visual and navigation tests
+        run: node tests/simulation-visuals.mjs
 
       - name: Run all-demo browser smoke test
         run: node tests/visual-smoke.mjs
