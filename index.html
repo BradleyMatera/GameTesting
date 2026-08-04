@@ -6,34 +6,47 @@
     <meta name="theme-color" content="#071019" />
     <meta
       name="description"
-      content="Brad Matera's Babylon.js lab: interactive 3D experiments in cloud systems, AI agents, web engineering, and game technology."
+      content="Brad Matera's interactive frontend systems lab: 3D experiences, realistic simulations, complete website demos, useful tools, and playable browser games."
     />
-    <title>Brad Matera // Babylon.js Lab</title>
+    <title>Brad Matera // Interactive Systems Lab</title>
     <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin />
     <link rel="stylesheet" href="./styles.css" />
+    <link rel="stylesheet" href="./lab-expansion.css" />
     <script src="https://cdn.jsdelivr.net/npm/babylonjs@9.18.0/babylon.min.js" defer></script>
     <script type="module" src="./js/app.js"></script>
   </head>
   <body>
-    <a class="skip-link" href="#lab-controls">Skip to demo controls</a>
+    <a class="skip-link" href="#demo-stage">Skip to active demo</a>
 
     <main class="app-shell">
-      <canvas id="renderCanvas" aria-label="Interactive 3D Babylon.js scene"></canvas>
+      <canvas id="renderCanvas" aria-label="Interactive Babylon.js scene"></canvas>
+      <section id="demo-stage" class="demo-stage" aria-label="Interactive frontend demo" hidden></section>
       <div class="scene-vignette" aria-hidden="true"></div>
       <div class="scanlines" aria-hidden="true"></div>
 
       <header class="topbar">
-        <a class="brand" href="./" aria-label="Brad Matera Babylon.js Lab home">
+        <button
+          id="library-toggle"
+          class="library-toggle"
+          type="button"
+          aria-label="Open demo library"
+          aria-controls="demo-library"
+          aria-expanded="false"
+        >
+          <span></span><span></span><span></span>
+        </button>
+
+        <a class="brand" href="./" aria-label="Brad Matera Interactive Systems Lab home">
           <span class="brand-mark" aria-hidden="true">BM</span>
           <span>
             <strong>BRAD MATERA</strong>
-            <small>BABYLON.JS LAB</small>
+            <small>INTERACTIVE SYSTEMS LAB</small>
           </span>
         </a>
 
         <div class="system-status" aria-label="System status">
           <span class="status-pulse" aria-hidden="true"></span>
-          <span>DEMO SYSTEM ONLINE</span>
+          <span>25 WORKING DEMOS ONLINE</span>
         </div>
 
         <a class="source-link" href="https://github.com/BradleyMatera/GameTesting" target="_blank" rel="noreferrer">
@@ -42,67 +55,90 @@
         </a>
       </header>
 
-      <aside class="demo-rail" aria-label="Demo library">
-        <p class="eyebrow">EXPERIMENT INDEX</p>
-        <nav id="demo-nav"></nav>
-        <div class="rail-footer">
+      <aside id="demo-library" class="demo-library" aria-label="Demo library">
+        <header class="library-heading">
+          <div>
+            <p>EXPERIMENT LIBRARY</p>
+            <strong id="demo-count">25 / 25</strong>
+          </div>
+          <button type="button" class="library-close" onclick="document.querySelector('#library-toggle').click()" aria-label="Close demo library">×</button>
+        </header>
+
+        <label class="demo-search">
+          <span class="visually-hidden">Search demos</span>
+          <i aria-hidden="true">⌕</i>
+          <input id="demo-search" type="search" placeholder="Search systems, websites, tools, games..." autocomplete="off" />
+        </label>
+
+        <nav id="category-nav" class="category-nav" aria-label="Demo categories"></nav>
+        <nav id="demo-nav" class="demo-nav" aria-label="Available demos"></nav>
+
+        <footer class="library-footer">
           <span>BUILT WITH</span>
-          <strong>BABYLON.JS 9</strong>
-        </div>
+          <strong>BABYLON.JS • CANVAS • JAVASCRIPT</strong>
+          <small>No dead demo cards. Every listed experience is interactive.</small>
+        </footer>
       </aside>
 
       <section class="intro-panel" aria-labelledby="demo-title">
-        <p class="eyebrow"><span>01</span> ACTIVE EXPERIMENT</p>
+        <div class="intro-meta">
+          <p class="eyebrow"><span id="demo-number">01</span> ACTIVE DEMO</p>
+          <strong id="demo-category">EXPERIENCES</strong>
+        </div>
         <h1 id="demo-title">DIGITAL<br /><em>COMMAND CENTER</em></h1>
         <p id="demo-description" class="intro-copy">
-          A live 3D map of the systems I build: cloud infrastructure, AI agents,
-          web engineering, and interactive technology.
+          An explorable 3D map of Brad Matera's cloud systems, AI agents, web engineering, and interactive technology.
         </p>
 
-        <div id="lab-controls" class="control-row" aria-label="Scene controls">
+        <div id="lab-controls" class="control-row" aria-label="Demo controls">
           <button id="tour-toggle" class="primary-control" type="button" aria-pressed="false">
             <span class="button-icon" aria-hidden="true">▶</span>
             Guided orbit
           </button>
-          <button id="reset-view" class="secondary-control" type="button">Reset view</button>
+          <button id="reset-view" class="secondary-control" type="button">Reset demo</button>
         </div>
 
-        <p class="control-hint">
-          Drag to rotate <span>•</span> Scroll to zoom <span>•</span> Select a system node
+        <p id="control-hint" class="control-hint">
+          Drag to rotate • Scroll to zoom • Select a glowing system node
         </p>
       </section>
 
+      <div class="sequence-controls" aria-label="Browse demos">
+        <button id="previous-demo" type="button" aria-label="Previous demo">←</button>
+        <span><kbd>[</kbd> <kbd>]</kbd></span>
+        <button id="next-demo" type="button" aria-label="Next demo">→</button>
+      </div>
+
       <aside id="detail-panel" class="detail-panel" aria-live="polite" aria-labelledby="detail-title">
         <div class="detail-heading">
-          <span id="detail-index">CORE</span>
+          <span id="detail-index">EXPERIENCES 01</span>
           <span class="detail-line" aria-hidden="true"></span>
         </div>
-        <h2 id="detail-title">Brad Matera</h2>
-        <p id="detail-kicker">FULL-STACK SOFTWARE ENGINEER</p>
+        <h2 id="detail-title">Digital Command Center</h2>
+        <p id="detail-kicker">INTERACTIVE FRONTEND DEMO</p>
         <p id="detail-copy">
-          This scene turns my real technical focus into an explorable system instead of a flat portfolio card.
-          Select any glowing node to inspect the part it represents.
+          Select a component inside a demo to inspect how it works and what the interaction represents.
         </p>
-        <div id="detail-tags" class="detail-tags" aria-label="Technologies">
-          <span>Babylon.js</span><span>JavaScript</span><span>WebGL</span>
+        <div id="detail-tags" class="detail-tags" aria-label="Demo technologies">
+          <span>Experiences</span><span>Babylon.js</span><span>Responsive</span>
         </div>
       </aside>
 
-      <footer class="telemetry" aria-label="Scene telemetry">
+      <footer class="telemetry" aria-label="Demo telemetry">
         <div><span>ENGINE</span><strong id="engine-mode">INITIALIZING</strong></div>
         <div><span>FPS</span><strong id="fps-counter">--</strong></div>
-        <div><span>MESHES</span><strong id="mesh-counter">--</strong></div>
+        <div><span>ELEMENTS</span><strong id="mesh-counter">--</strong></div>
         <div class="telemetry-wide"><span>MISSION</span><strong>BUILD USEFUL THINGS THAT ACTUALLY WORK</strong></div>
       </footer>
 
       <div id="loading-screen" class="loading-screen" role="status" aria-live="polite">
         <div class="loader-mark" aria-hidden="true"><span></span><span></span><span></span></div>
-        <p>BOOTING DIGITAL COMMAND CENTER</p>
+        <p>LOADING INTERACTIVE DEMO</p>
       </div>
 
       <div id="error-screen" class="error-screen" hidden>
-        <strong>3D engine failed to start.</strong>
-        <p>The page shell is working, but Babylon.js could not load. Check the browser console or network connection.</p>
+        <strong>Demo failed to start.</strong>
+        <p>Check the browser console or network connection.</p>
       </div>
     </main>
   </body>
