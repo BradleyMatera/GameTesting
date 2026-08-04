@@ -6,6 +6,8 @@ on:
     paths:
       - ".v2-payload/**"
       - ".github/workflows/apply-v2.yml"
+  pull_request:
+    branches: [main]
 
 permissions:
   contents: write
