@@ -1,0 +1,110 @@
+name: Audit current live site
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/audit-current-live.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  BASE_URL: https://bradleymatera.github.io/GameTesting/
+
+jobs:
+  screenshots:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install Playwright
+        run: |
+          npm install --no-save playwright@1.55.0
+          npx playwright install --with-deps chromium
+
+      - name: Capture every live demo
+        shell: bash
+        run: |
+          mkdir -p audit-screenshots
+          cat > capture-audit.mjs <<'EOF'
+          import { chromium } from 'playwright';
+          import { readFile, writeFile } from 'node:fs/promises';
+
+          const base = process.env.BASE_URL;
+          const registry = await readFile('js/demo-registry.js', 'utf8');
+          const ids = [...registry.matchAll(/\bdemo\(\s*"([^"]+)"/g)].map(match => match[1]);
+          const browser = await chromium.launch({ headless: true });
+          const report = [];
+
+          async function capture(viewport, suffix, fullPage = true) {
+            const page = await browser.newPage({ viewport });
+            for (let index = 0; index < ids.length; index += 1) {
+              const id = ids[index];
+              const errors = [];
+              page.removeAllListeners('pageerror');
+              page.removeAllListeners('console');
+              page.on('pageerror', error => errors.push(`pageerror: ${error.message}`));
+              page.on('console', message => {
+                if (message.type() === 'error') errors.push(`console: ${message.text()}`);
+              });
+
+              const response = await page.goto(`${base}?demo=${encodeURIComponent(id)}&audit=${Date.now()}`, {
+                waitUntil: 'networkidle',
+                timeout: 30000,
+              });
+              await page.waitForFunction(
+                () => document.querySelector('#loading-screen')?.classList.contains('done'),
+                null,
+                { timeout: 20000 },
+              );
+              await page.waitForTimeout(500);
+
+              const metrics = await page.evaluate(() => {
+                const active = document.querySelector('.demo-button.active');
+                const stage = document.querySelector('#demo-stage');
+                const library = document.querySelector('#demo-library');
+                const surface = document.querySelector('#demo-stage .demo-surface');
+                const rect = element => element ? element.getBoundingClientRect().toJSON() : null;
+                return {
+                  title: document.querySelector('#demo-title')?.textContent?.trim() || '',
+                  activeId: active?.dataset.demoId || '',
+                  errorVisible: !document.querySelector('#error-screen')?.hidden,
+                  documentWidth: document.documentElement.scrollWidth,
+                  viewportWidth: document.documentElement.clientWidth,
+                  stage: rect(stage),
+                  library: rect(library),
+                  surface: rect(surface),
+                  bodyMode: document.body.dataset.demoMode || '',
+                };
+              });
+
+              const filename = `audit-screenshots/${String(index + 1).padStart(2, '0')}-${id}-${suffix}.png`;
+              await page.screenshot({ path: filename, fullPage });
+              report.push({ id, suffix, status: response?.status(), errors, metrics, filename });
+            }
+            await page.close();
+          }
+
+          await capture({ width: 1600, height: 1000 }, 'desktop');
+          await capture({ width: 390, height: 844 }, 'mobile');
+          await writeFile('audit-screenshots/report.json', JSON.stringify(report, null, 2));
+          await browser.close();
+          EOF
+          node capture-audit.mjs
+
+      - name: Upload screenshot audit
+        uses: actions/upload-artifact@v4
+        with:
+          name: current-live-audit
+          path: audit-screenshots
+          retention-days: 3
