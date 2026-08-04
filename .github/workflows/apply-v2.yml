@@ -1,0 +1,78 @@
+name: Apply purpose-built demo overhaul
+
+on:
+  push:
+    branches: [agent/unique-demo-overhaul]
+    paths:
+      - ".v2-payload/**"
+      - ".github/workflows/apply-v2.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+
+    steps:
+      - name: Checkout overhaul branch
+        uses: actions/checkout@v4
+        with:
+          ref: agent/unique-demo-overhaul
+          fetch-depth: 0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Generate production source
+        shell: python
+        run: |
+          from pathlib import Path
+          import gzip
+          import shutil
+
+          payload = Path('.v2-payload')
+          mapping = {
+              'system-simulations.js.gz': Path('js/demos/system-simulations.js'),
+              'interactive-tools.js.gz': Path('js/demos/interactive-tools.js'),
+              'browser-games.js.gz': Path('js/demos/browser-games.js'),
+              'production-v2.css.gz': Path('production-v2.css'),
+          }
+
+          for source_name, destination in mapping.items():
+              source = payload / source_name
+              if not source.exists():
+                  raise SystemExit(f'Missing payload: {source}')
+              destination.parent.mkdir(parents=True, exist_ok=True)
+              destination.write_bytes(gzip.decompress(source.read_bytes()))
+
+          shutil.rmtree(payload)
+          Path('.github/workflows/apply-v2.yml').unlink()
+
+      - name: Validate generated source
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --check js/app.js
+          node --check js/demos/system-simulations.js
+          node --check js/demos/interactive-tools.js
+          node --check js/demos/browser-games.js
+          test -s production-v2.css
+          test "$(wc -c < production-v2.css)" -gt 50000
+          grep -q "agent-office-floor" js/demos/system-simulations.js
+          grep -q "arch-graph" js/demos/interactive-tools.js
+          grep -q "defense-tower" js/demos/browser-games.js
+
+      - name: Commit generated overhaul
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "Apply purpose-built demo overhaul"
+          git push origin HEAD:agent/unique-demo-overhaul
