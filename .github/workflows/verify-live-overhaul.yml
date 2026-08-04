@@ -1,0 +1,98 @@
+name: Verify live overhaul
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  live-pages:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Wait for merged Pages deployment
+        shell: bash
+        run: |
+          set -euo pipefail
+          base="https://bradleymatera.github.io/GameTesting"
+          deployed=false
+          for attempt in $(seq 1 36); do
+            echo "Deployment check $attempt/36"
+            if curl --fail --silent --show-error "$base/production-v2.css?attempt=$attempt" -o /tmp/production-v2.css \
+              && grep -q 'production-v2-base.css' /tmp/production-v2.css; then
+              deployed=true
+              break
+            fi
+            sleep 5
+          done
+          test "$deployed" = true
+          curl --fail --silent --show-error "$base/" -o /tmp/index.html
+          grep -q 'Interactive Systems Lab' /tmp/index.html
+          curl --fail --silent --show-error "$base/production-v2-base.css" -o /tmp/production-v2-base.css
+          test "$(wc -c < /tmp/production-v2-base.css)" -gt 15000
+          curl --fail --silent --show-error "$base/js/demos/system-simulations.js" -o /tmp/system-simulations.js
+          curl --fail --silent --show-error "$base/js/demos/interactive-tools.js" -o /tmp/interactive-tools.js
+          curl --fail --silent --show-error "$base/js/demos/browser-games.js" -o /tmp/browser-games.js
+          test "$(wc -c < /tmp/system-simulations.js)" -gt 25000
+          test "$(wc -c < /tmp/interactive-tools.js)" -gt 30000
+          test "$(wc -c < /tmp/browser-games.js)" -gt 30000
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install Chromium
+        run: |
+          npm install --no-save playwright@1.55.0
+          npx playwright install --with-deps chromium
+
+      - name: Exercise fixed live controls
+        shell: bash
+        run: |
+          cat > /tmp/verify-live.mjs <<'EOF'
+          import { chromium } from 'playwright';
+
+          const base = 'https://bradleymatera.github.io/GameTesting/';
+          const browser = await chromium.launch({ headless: true });
+          const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
+          const errors = [];
+          page.on('pageerror', error => errors.push(error.message));
+          page.on('console', message => {
+            if (message.type() === 'error') errors.push(message.text());
+          });
+
+          async function openDemo(id) {
+            const response = await page.goto(`${base}?demo=${id}&live=36151e6`, {
+              waitUntil: 'networkidle',
+              timeout: 30000,
+            });
+            if (!response?.ok()) throw new Error(`${id}: HTTP ${response?.status()}`);
+            await page.waitForFunction(
+              () => document.querySelector('#loading-screen')?.classList.contains('done'),
+              null,
+              { timeout: 20000 },
+            );
+            if (await page.locator('#error-screen').isVisible()) {
+              throw new Error(`${id}: error screen visible`);
+            }
+          }
+
+          await openDemo('seo-auditor');
+          await page.locator('[data-seo-run]').click({ timeout: 10000 });
+          const score = Number(await page.locator('[data-seo-score]').innerText());
+          if (!Number.isFinite(score) || score < 50) throw new Error(`Invalid live SEO score: ${score}`);
+
+          await openDemo('procedural-world');
+          await page.locator('[data-world-generate]').click({ timeout: 10000 });
+          const land = await page.locator('[data-land-stat]').innerText();
+          if (!land.endsWith('%')) throw new Error(`Invalid live world statistic: ${land}`);
+
+          if (errors.length) throw new Error(errors.join(' | '));
+          await browser.close();
+          console.log('Live GitHub Pages controls passed.');
+          EOF
+          node /tmp/verify-live.mjs
